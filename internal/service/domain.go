@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/devhdn-212/totmaster_api/domain"
@@ -103,9 +104,10 @@ func (d domainService) Save(ctx context.Context, req dto.DomainSave, client stri
 		if flag.ID != "" {
 			return util.ErrDuplicate
 		}
-
+		raw := strings.ReplaceAll(uuid.NewString(), "-", "")
+		date := time.Now().Format("0601")
 		dm := domain.Domain{
-			ID:        uuid.NewString(),
+			ID:        fmt.Sprintf("%s%s", date, raw),
 			Type:      req.Typedomain,
 			Name:      req.Name,
 			Status:    req.Status,
@@ -125,6 +127,7 @@ func (d domainService) Save(ctx context.Context, req dto.DomainSave, client stri
 			return fmt.Errorf("Domain conf toto %w", util.ErrNotFound)
 		}
 
+		flag.ID = req.ID
 		flag.Type = req.Typedomain
 		flag.Name = req.Name
 		flag.Status = req.Status
