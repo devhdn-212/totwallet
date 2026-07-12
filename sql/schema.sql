@@ -814,16 +814,171 @@ CREATE TABLE public.tbl_currency (
 
 
 
-CREATE TABLE public.tbl_mst_uom (
-	iduom varchar(10) NOT NULL,
-	nmuom varchar(100) DEFAULT ''::character varying NOT NULL,
-	status varchar(1) NOT NULL,
-	create_by varchar(30) DEFAULT ''::character varying NULL,
-	create_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	update_by varchar(30) DEFAULT ''::character varying NULL,
+
+//TRANSAKSI
+CREATE TABLE tbl_trx_keluarantogel (
+	idtrxkeluaran int8 NOT NULL,
+	idcomppasaran int4 NOT NULL,
+	idcompany varchar(10) NULL,
+	yearmonth varchar(20) NULL,
+	keluaranperiode int4 NOT NULL,
+	datekeluaran date NOT NULL,
+	keluarantogel varchar(4) DEFAULT '' NULL,
+	prize2 varchar(4) DEFAULT '' NULL,
+	prize3 varchar(4) DEFAULT '' NULL,
+	total_member int4 DEFAULT 0 NULL,
+	total_bet numeric(18,2) DEFAULT 0 NULL,
+	total_outstanding numeric(18,2) DEFAULT 0 NULL,
+	total_win numeric(18,2) DEFAULT 0 NULL,
+	total_lose numeric(18,2) DEFAULT 0 NULL,
+	total_buangan numeric(18,2) DEFAULT 0 NULL,
+	total_reject numeric(18,2) DEFAULT 0 NULL,
+	winlose numeric(18,2) DEFAULT 0 NULL,
+	revisi int4 DEFAULT 0 NULL,
+	noterevisi varchar(150) DEFAULT '' NULL,
+	create_by varchar(70) NULL,
+	create_at timestamptz NOT NULL,
+	update_by varchar(70) DEFAULT '' NULL,
 	update_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
-	CONSTRAINT tbl_mst_uom_unique UNIQUE (iduom)
-);
+	PRIMARY KEY (idtrxkeluaran, datekeluaran)
+)
+PARTITION BY RANGE (datekeluaran);
+
+CREATE INDEX idx_result_toto ON ONLY tbl_trx_keluarantogel
+	USING btree (keluarantogel);
+
+CREATE INDEX yearmonth_datekeluaran_keluarantogel_idtrxkeluaran ON ONLY tbl_trx_keluarantogel
+	USING btree (yearmonth, datekeluaran, keluarantogel, idtrxkeluaran);
+
+
+// partisi
+CREATE TABLE tbl_trx_keluarantogel_2026_07 PARTITION OF tbl_trx_keluarantogel
+	FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+	
+
+CREATE TABLE tbl_trx_keluarantogel_detail (
+	detail_uuid uuid DEFAULT gen_random_uuid() NULL,
+	idtrxkeluarandetail int8 NOT NULL,
+	idtrxkeluaran int8 NOT NULL,
+	idcompany varchar(10) NULL,
+	datetimedetail timestamptz NOT NULL,
+	ipaddress varchar(45) NULL,
+	username varchar(50) NULL,
+	typegame varchar(50) NULL,
+	nomortogel varchar(20) NULL,
+	posisitogel varchar(20) NULL,
+	bet int8 NOT NULL,
+	diskon numeric(18,2) NOT NULL,
+	win numeric(18,2) DEFAULT 0 NOT NULL,
+	winhasil numeric(18,2) DEFAULT 0 NULL,
+	cancelbet numeric(18,2) DEFAULT 0 NULL,
+	kei numeric(18,2) NOT NULL,
+	upline varchar(50) NULL,
+	upline_ref numeric(18,2) DEFAULT 0 NULL,
+	type_ref varchar(2) NULL,
+	browsertogel varchar(50) NULL,
+	devicetogel varchar(50) NULL,
+	statuskeluarandetail varchar(10) NULL,
+	betround int4 NOT NULL,
+	winrev int4 DEFAULT 0 NULL,
+	playerinvoice int8 NOT NULL,
+	senddata varchar(20) NULL,
+	senddatacreatedate timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	updatedata varchar(20) NULL,
+	updatedatacreatedate timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	create_by varchar(70) NULL,
+	create_at timestamptz NULL,
+	update_by varchar(70) DEFAULT '' NULL,
+	update_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	PRIMARY KEY (idtrxkeluarandetail, datetimedetail)
+)
+PARTITION BY RANGE (datetimedetail);
+
+CREATE INDEX idx_member_detail_invoice ON ONLY tbl_trx_keluarantogel_detail
+	USING btree (idtrxkeluaran, playerinvoice, username);
+
+CREATE TABLE tbl_trx_keluarantogel_detail_reject (
+	detail_uuid_reject uuid DEFAULT gen_random_uuid() NULL,
+	idtrxkeluarandetail_reject int8 NOT NULL,
+	idtrxkeluaran int8 NOT NULL,
+	idcompany varchar(10) NULL,
+	datetimedetail_reject timestamptz NOT NULL,
+	ipaddress_reject varchar(45) NULL,
+	username_reject varchar(50) NULL,
+	typegame_reject varchar(50) NULL,
+	nomortogel_reject varchar(20) NULL,
+	posisitogel_reject varchar(20) NULL,
+	bet_reject int8 NOT NULL,
+	diskon_reject numeric(18,2) NOT NULL,
+	win_reject numeric(18,2) DEFAULT 0 NOT NULL,
+	winhasil_reject numeric(18,2) DEFAULT 0 NULL,
+	cancelbet_reject numeric(18,2) DEFAULT 0 NULL,
+	kei_reject numeric(18,2) NOT NULL,
+	browsertogel_reject varchar(50) NULL,
+	devicetogel_reject varchar(50) NULL,
+	betround_reject int4 NOT NULL,
+	createkeluarandetail_reject varchar(70) NULL,
+	createdatekeluarandetail_reject timestamptz NOT NULL,
+	updatekeluarandetail_reject varchar(70) NULL,
+	updatedatekeluarandetail_reject timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	winrev_reject int4 DEFAULT 0 NULL,
+	playerinvoice_reject int8 NOT NULL,
+	reason_reject varchar(250) DEFAULT '' NULL,
+	createdatereject timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	PRIMARY KEY (idtrxkeluarandetail_reject, datetimedetail_reject)
+)
+
+
+CREATE TABLE tbl_trx_keluarantogel_member (
+	idkeluaranmember bigserial NOT NULL,
+	member_uuid uuid DEFAULT gen_random_uuid() NULL,
+	idtrxkeluaran int8 NOT NULL,
+	idcompany varchar(10) NULL,
+	username varchar(50) NULL,
+	totalbet numeric(18,2) DEFAULT 0 NULL,
+	totalbayar numeric(18,2) DEFAULT 0 NULL,
+	totaldiscount numeric(18,2) DEFAULT 0 NULL,
+	totalkei numeric(18,2) DEFAULT 0 NULL,
+	totalreferal numeric(18,2) DEFAULT 0 NULL,
+	totalwin numeric(18,2) DEFAULT 0 NULL,
+	totalcancel numeric(18,2) DEFAULT 0 NULL,
+	betround int4 DEFAULT 0 NULL,
+	createkeluaranmember varchar(70) NULL,
+	createdatekeluaranmember timestamptz NOT NULL,
+	updatekeluaranmember varchar(70) NULL,
+	updatedatekeluaranmember timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	playerinvoice int8 NOT NULL,
+	status varchar(10) DEFAULT 'LOSE' NULL,
+	totalpair int8 DEFAULT 0 NULL,
+	PRIMARY KEY (idkeluaranmember, createdatekeluaranmember)
+)
+PARTITION BY RANGE (createdatekeluaranmember);
+
+CREATE INDEX idx_member_invoice ON ONLY tbl_trx_keluarantogel_member
+	USING btree (idtrxkeluaran, playerinvoice, username);
+
+
+CREATE TABLE tbl_trx_member_invoice (
+	id uuid DEFAULT gen_random_uuid() NULL,
+	agent_code varchar(20) NOT NULL,
+	invoice_id int8 NOT NULL,
+	username varchar(50) NOT NULL,
+	player_token varchar(50) NOT NULL,
+	debit_amount numeric(18,2) DEFAULT 0 NULL,
+	date_transaction date NOT NULL,
+	status varchar(20) NOT NULL,
+	create_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	update_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	visitor_id varchar(50) NULL,
+	request_id varchar(50) NULL,
+	PRIMARY KEY (invoice_id, date_transaction),
+	CONSTRAINT chk_invoice_status CHECK (status IN ('Requested','Completed','Void'))
+)
+PARTITION BY RANGE (date_transaction);
+
+CREATE INDEX idx_member_invoice_status ON ONLY tbl_trx_member_invoice
+	USING btree (status, date_transaction);
+
 
 
 
