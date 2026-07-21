@@ -13,12 +13,14 @@ type Companypasaran struct {
 	IDcomppasaran                    string          `db:"idcomppasaran"`
 	IDcompany                        string          `db:"idcompany"`
 	IDpasarantogel                   string          `db:"idpasarantogel"`
+	Codepasaran                      string          `db:"codecomppasaran"`
 	Aliascomppasaran                 string          `db:"aliascomppasaran"`
 	URLpasaran                       string          `db:"urlpasaran"`
 	URLlogo                          string          `db:"urllogo"`
 	Pasarandiundi                    string          `db:"pasarandiundi"`
 	Pasaranlibur                     string          `db:"pasaranlibur"`
 	Display                          int             `db:"displaypasaran"`
+	Totalrevisi                      int             `db:"totalrevisi"`
 	AngkaMinbasket                   decimal.Decimal `db:"angka_minbasket"`
 	AngkaMinbet                      decimal.Decimal `db:"angka_minbet"`
 	AngkaMaxbet4d                    decimal.Decimal `db:"angka_maxbet4d"`

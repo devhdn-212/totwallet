@@ -239,12 +239,14 @@ func (u *companypasaranRepository) Update(ctx context.Context, comppasaran *doma
 	}
 
 	cols := []col{
+		{"codecomppasaran", comppasaran.Codepasaran},
 		{"aliascomppasaran", comppasaran.Aliascomppasaran},
 		{"urlpasaran", comppasaran.URLpasaran},
 		{"urllogo", comppasaran.URLlogo},
 		{"pasarandiundi", comppasaran.Pasarandiundi},
 		{"pasaranlibur", comppasaran.Pasaranlibur},
 		{"displaypasaran", comppasaran.Display},
+		{"totalrevisi", comppasaran.Totalrevisi},
 		{"angka_minbasket", comppasaran.AngkaMinbasket},
 		{"angka_minbet", comppasaran.AngkaMinbet},
 		{"angka_maxbet4d", comppasaran.AngkaMaxbet4d},

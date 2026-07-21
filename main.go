@@ -67,7 +67,8 @@ func main() {
 				if err := json.Unmarshal(c.Body(), &parsed); err == nil {
 					delete(parsed, "password")
 					delete(parsed, "token")
-					fields = append(fields, zap.Any("json_body", parsed))
+					//capture user input
+					//fields = append(fields, zap.Any("json_body", parsed))
 				}
 			}
 		}

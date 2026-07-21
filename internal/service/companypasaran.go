@@ -93,12 +93,14 @@ func (u *companypasaranService) All(ctx context.Context, idcomp string) ([]dto.C
 			IDcomppasaran:                    v.IDcomppasaran,
 			IDcompany:                        v.IDcompany,
 			IDpasarantogel:                   v.IDpasarantogel,
+			Codepasaran:                      v.Codepasaran,
 			Aliascomppasaran:                 v.Aliascomppasaran,
 			URLpasaran:                       v.URLpasaran,
 			URLlogo:                          v.URLlogo,
 			Pasarandiundi:                    v.Pasarandiundi,
 			Pasaranlibur:                     v.Pasaranlibur,
 			Display:                          v.Display,
+			Totalrevisi:                      v.Totalrevisi,
 			Status:                           v.Status,
 			AngkaMinbasket:                   v.AngkaMinbasket,
 			AngkaMinbet:                      v.AngkaMinbet,
@@ -423,8 +425,10 @@ func (u *companypasaranService) Save(ctx context.Context, req dto.Companypasaran
 		}
 
 		flag.IDcomppasaran = req.IDcomppasaran
+		flag.Codepasaran = req.Codepasaran
 		flag.Aliascomppasaran = req.Aliascomppasaran
 		flag.Display = req.Display
+		flag.Totalrevisi = req.Totalrevisi
 		flag.URLpasaran = req.URLpasaran
 		flag.URLlogo = req.URLlogo
 		flag.Pasarandiundi = req.Pasarandiundi

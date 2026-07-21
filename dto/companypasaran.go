@@ -8,12 +8,14 @@ type CompanypasaranData struct {
 	IDcomppasaran                    string                 `json:"companypasaran_idcomppasaran"`
 	IDcompany                        string                 `json:"companypasaran_idcompany"`
 	IDpasarantogel                   string                 `json:"companypasaran_idpasarantogel"`
+	Codepasaran                      string                 `json:"companypasaran_codepasaran"`
 	Aliascomppasaran                 string                 `json:"companypasaran_aliascomppasaran"`
 	URLpasaran                       string                 `json:"companypasaran_urlpasaran"`
 	URLlogo                          string                 `json:"companypasaran_urllogo"`
 	Pasarandiundi                    string                 `json:"companypasaran_pasarandiundi"`
 	Pasaranlibur                     string                 `json:"companypasaran_pasaranlibur"`
 	Display                          int                    `json:"companypasaran_displaypasaran"`
+	Totalrevisi                      int                    `json:"companypasaran_totalrevisi"`
 	AngkaMinbasket                   decimal.Decimal        `json:"companypasaran_angka_minbasket"`
 	AngkaMinbet                      decimal.Decimal        `json:"companypasaran_angka_minbet"`
 	AngkaMaxbet4d                    decimal.Decimal        `json:"companypasaran_angka_maxbet4d"`
@@ -286,6 +288,7 @@ type CompanypasaranSave struct {
 	IDcomppasaran                    string              `json:"companypasaran_idcomppasaran"`
 	IDcompany                        string              `json:"companypasaran_idcompany" validate:"required"`
 	IDpasarantogel                   string              `json:"companypasaran_idpasarantogel" validate:"required"`
+	Codepasaran                      string              `json:"companypasaran_codepasaran" validate:"required"`
 	Aliascomppasaran                 string              `json:"companypasaran_aliascomppasaran"`
 	URLpasaran                       string              `json:"companypasaran_urlpasaran"`
 	URLlogo                          string              `json:"companypasaran_urllogo"`
@@ -293,6 +296,7 @@ type CompanypasaranSave struct {
 	Pasaranlibur                     string              `json:"companypasaran_pasaranlibur"`
 	Status                           string              `json:"companypasaran_status"`
 	Display                          int                 `json:"companypasaran_displaypasaran"`
+	Totalrevisi                      int                 `json:"companypasaran_totalrevisi"`
 	AngkaMinbasket                   decimal.Decimal     `json:"companypasaran_angka_minbasket"`
 	AngkaMinbet                      decimal.Decimal     `json:"companypasaran_angka_minbet"`
 	AngkaMaxbet4d                    decimal.Decimal     `json:"companypasaran_angka_maxbet4d"`

@@ -854,8 +854,10 @@ CREATE INDEX yearmonth_datekeluaran_keluarantogel_idtrxkeluaran ON ONLY tbl_trx_
 // partisi
 CREATE TABLE tbl_trx_keluarantogel_2026_07 PARTITION OF tbl_trx_keluarantogel
 	FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-	
 
+CREATE TABLE tbl_trx_keluarantogel_detail_2026_07 PARTITION OF tbl_trx_keluarantogel_detail
+	FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');	
+	
 CREATE TABLE tbl_trx_keluarantogel_detail (
 	detail_uuid uuid DEFAULT gen_random_uuid() NULL,
 	idtrxkeluarandetail int8 NOT NULL,
@@ -880,7 +882,7 @@ CREATE TABLE tbl_trx_keluarantogel_detail (
 	devicetogel varchar(50) NULL,
 	statuskeluarandetail varchar(10) NULL,
 	betround int4 NOT NULL,
-	winrev int4 DEFAULT 0 NULL,
+	winrev numeric(18,2) DEFAULT 0 NULL,
 	playerinvoice int8 NOT NULL,
 	senddata varchar(20) NULL,
 	senddatacreatedate timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
@@ -978,6 +980,10 @@ PARTITION BY RANGE (date_transaction);
 
 CREATE INDEX idx_member_invoice_status ON ONLY tbl_trx_member_invoice
 	USING btree (status, date_transaction);
+
+
+
+
 
 
 
