@@ -17,6 +17,7 @@ const (
 	DB_tbl_companywallet       string = "tbl_company_wallet"
 	DB_mst_pasaran_togel       string = "tbl_mst_pasaran_togel"
 	DB_mst_pasaran_jadwaltogel string = "tbl_mst_pasaran_jadwaltogel"
+	DB_tbl_mst_setting         string = "tbl_mst_setting"
 )
 const Sourcechar string = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{};:,.<>?/`
 

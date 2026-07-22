@@ -985,26 +985,23 @@ CREATE INDEX idx_member_invoice_status ON ONLY tbl_trx_member_invoice
 
 
 
-
-
-
-CREATE TABLE db_bbca.tbl_account_balance_log (
-	idaccbalancelog varchar(150) NOT NULL,
-	ref_idtrx varchar(150) NOT NULL,
-	ref_table varchar(150) NOT NULL,
-	typeaccbalancelog varchar(10) NOT NULL,
-	dateaccbalancelog date NOT NULL,
-	idcurr varchar(20) NOT NULL,
-	amount_credit numeric(36, 18) DEFAULT 0 NOT NULL,
-	amount_debit numeric(36, 18) DEFAULT 0 NOT NULL,
-	create_by varchar(30) DEFAULT ''::character varying NULL,
-	create_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	update_by varchar(30) DEFAULT ''::character varying NULL,
+CREATE TABLE tbl_mst_setting (
+	idsetting int4 NOT NULL,
+	appversion varchar(20) NULL,
+	startmaintenance time NOT NULL,
+	endmaintenance time NOT NULL,
+	shio_parent int4 DEFAULT 0 NOT NULL,
+	create_by varchar(70) NULL,
+	create_at timestamptz NULL,
+	update_by varchar(70) DEFAULT '' NULL,
 	update_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
-	idwallet varchar(150) DEFAULT ''::character varying NULL,
-	CONSTRAINT tbl_ledger_company_unique UNIQUE (idaccbalancelog)
+	CONSTRAINT tbl_mst_setting_pk PRIMARY KEY (idsetting)
 );
-CREATE INDEX tbl_ledger_company_idcompwalletbank_idx ON db_bbca.tbl_account_balance_log USING btree (idwallet);
+
+
+
+
+
 
 
 

@@ -15,39 +15,39 @@ import (
 	"go.uber.org/zap"
 )
 
-type bankApi struct {
-	bankService domain.BankService
+type settingApi struct {
+	settingService domain.SettingService
 }
 
-func NewBankApi(app *fiber.App,
-	bankService domain.BankService,
+func NewSettingApi(app *fiber.App,
+	settingService domain.SettingService,
 	authmidle fiber.Handler) {
-	ad := bankApi{
-		bankService: bankService,
+	ad := settingApi{
+		settingService: settingService,
 	}
-	bank := app.Group("/api/bank", authmidle)
-	bank.Post("", ad.Index)
-	bank.Post("/save", ad.Save)
+	setting := app.Group("/api/setting", authmidle)
+	setting.Post("", ad.Index)
+	setting.Post("/save", ad.Save)
 }
-func (ad *bankApi) Index(ctx *fiber.Ctx) error {
+func (ad *settingApi) Index(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
-	res, err := ad.bankService.All(c)
+	res, err := ad.settingService.All(c)
 	if err != nil {
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
 	return ctx.JSON(dto.CreateResponseSuccess(res))
 }
-func (ad *bankApi) Save(ctx *fiber.Ctx) error {
+func (ad *settingApi) Save(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
-	var req dto.BankSave
+	var req dto.SettingSave
 	if err := ctx.BodyParser(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
-			zap.String("endpoint", "Create Bank"),
+			zap.String("endpoint", "Create Setting"),
 			zap.String("body", string(ctx.Body())),
 			zap.String("error", err.Error()),
 		)
@@ -56,7 +56,7 @@ func (ad *bankApi) Save(ctx *fiber.Ctx) error {
 	fails := util.Validate(req)
 
 	if len(fails) > 0 {
-		connection.Log.Warn("Validation failed for update Bank",
+		connection.Log.Warn("Validation failed for update Setting",
 			zap.Any("validation_errors", fails),
 			zap.Any("body", req),
 		)
@@ -65,7 +65,7 @@ func (ad *bankApi) Save(ctx *fiber.Ctx) error {
 	}
 	datatoken := ctx.Locals("client_username").(string)
 	client_username := util.Parsing_final(datatoken)
-	flagpage := util.Validpage(client_username, "BANK-SAVE")
+	flagpage := util.Validpage(client_username, "SETTING-SAVE")
 	if !flagpage {
 		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"status":  fiber.StatusForbidden,
@@ -73,15 +73,14 @@ func (ad *bankApi) Save(ctx *fiber.Ctx) error {
 		})
 	}
 
-	err := ad.bankService.Save(c, req, client_username)
+	err := ad.settingService.Save(c, req, client_username)
 	if err != nil {
 		recordJson, _ := json.Marshal(req)
-		connection.Log.Error("Failed to create / update Bank",
-			zap.String("id", req.ID),
+		connection.Log.Error("Failed to create / update Setting",
+			zap.Int("id", req.ID),
 			zap.String("error", err.Error()),
 			zap.String("record", string(recordJson)),
 		)
-
 		// cek duplicate entry
 		if err.Error() == "duplicate entry" {
 			return ctx.Status(http.StatusConflict).
@@ -90,8 +89,8 @@ func (ad *bankApi) Save(ctx *fiber.Ctx) error {
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
-	connection.Log.Info("Bank create / update successfully",
-		zap.String("id", req.ID),
+	connection.Log.Info("Setting create / update successfully",
+		zap.Int("id", req.ID),
 	)
 
 	return ctx.Status(http.StatusOK).

@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	RedisCompanypasaran = "master:companypasaran:all"
+	RedisCompanypasaran     = "master:companypasaran:all"
+	RedisCompanypasaranagen = "agen:pasaran:all"
 )
 
 type companypasaranService struct {
@@ -737,5 +738,6 @@ func (u *companypasaranService) Save(ctx context.Context, req dto.Companypasaran
 	}
 
 	go connection.DeleteRedis(RedisCompanypasaran + ":" + strings.ToLower(req.IDcompany))
+	go connection.DeleteRedis(RedisCompanypasaranagen + ":" + strings.ToLower(req.IDcompany))
 	return nil
 }
