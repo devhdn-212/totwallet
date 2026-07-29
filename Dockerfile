@@ -1,8 +1,11 @@
 # ===== Stage 1: build frontend (Svelte 5 + Vite) =====
-FROM node:22-alpine AS webbuilder
+# Pakai base glibc (bukan alpine/musl) + regenerate lockfile di dalam container: package-lock.json
+# yang di-generate di Windows sering gagal resolve native binding (rolldown/esbuild/rollup) pas
+# di-install ulang di Linux — https://github.com/npm/cli/issues/4828.
+FROM node:22-bookworm-slim AS webbuilder
 WORKDIR /web
-COPY web2026/package.json web2026/package-lock.json ./
-RUN npm ci
+COPY web2026/package.json ./
+RUN npm install
 COPY web2026/ .
 RUN npm run build
 

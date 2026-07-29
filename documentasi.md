@@ -203,6 +203,13 @@ docker run -p 6167:6167 --env-file .env wallet-api
 (Go → binary `app`), lalu image final (`alpine`) yang cuma isi binary + `.env` + hasil
 build frontend — jadi satu image serve API + admin panel sekaligus.
 
+> **Catatan platform:** stage frontend pakai base image `node:22-bookworm-slim` (glibc), bukan
+> `node:22-alpine` (musl), dan install dependency dari `package.json` langsung (bukan
+> `npm ci` pakai `package-lock.json` yang di-commit) — supaya native binding Vite/rolldown
+> ke-resolve buat platform Linux target build, bukan ketinggalan hasil resolve dari mesin dev
+> (Windows). Kalau `package-lock.json` di repo sudah pernah di-regenerate di Linux/CI dan stabil,
+> boleh balik pakai `npm ci` buat build yang lebih reproducible & cepat.
+
 ## 7. Known Issues / Follow-up
 
 - `internal/repository/admin.go` fungsi `Update`: kolom `update_by` ke-isi `admin.Username`
