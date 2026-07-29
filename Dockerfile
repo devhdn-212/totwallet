@@ -17,11 +17,14 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o app .
 
 # ===== Stage 3: final runtime image =====
+# Sengaja TIDAK copy .env ke image — file itu di-gitignore (gak ada di build context Railway/CI)
+# dan idealnya emang gak dibaked ke image. Isi env var lewat dashboard platform (Railway dsb)
+# atau `docker run --env-file .env` buat lokal; internal/config/loader.go sudah fallback ke
+# environment variable asli kalau .env gak ketemu.
 FROM alpine:latest as totwalletrelease
 WORKDIR /app
 RUN apk add tzdata
 COPY --from=totwallet /go/src/github.com/devhdn-212/totwallet/app .
-COPY --from=totwallet /go/src/github.com/devhdn-212/totwallet/.env /app/.env
 COPY --from=webbuilder /web/dist /app/web2026/dist
 
 ENV TZ=Asia/Jakarta

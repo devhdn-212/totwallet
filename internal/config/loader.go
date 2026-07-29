@@ -9,10 +9,11 @@ import (
 )
 
 func Get() *Config {
-	err := godotenv.Load()
-
-	if err != nil {
-		log.Fatal("Error loading .env file", err.Error())
+	// .env cuma buat kenyamanan dev lokal. Kalau filenya gak ada (mis. deploy di Railway/
+	// platform lain yang inject env var langsung dari dashboard, bukan lewat file), jangan
+	// fatal — lanjut aja pakai os.Getenv apa adanya.
+	if err := godotenv.Load(); err != nil {
+		log.Println("Info: .env file not found, relying on real environment variables:", err.Error())
 	}
 
 	expInt, _ := strconv.Atoi(os.Getenv("JWT_EXP"))
