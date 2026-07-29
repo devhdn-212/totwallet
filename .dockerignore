@@ -1,0 +1,6 @@
+.git
+.idea
+.vscode
+*.md
+web2026/node_modules
+web2026/dist

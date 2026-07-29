@@ -6,26 +6,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/devhdn-212/totmaster_api/domain"
-	"github.com/devhdn-212/totmaster_api/dto"
-	"github.com/devhdn-212/totmaster_api/internal/connection"
-	"github.com/devhdn-212/totmaster_api/internal/util"
+	"github.com/devhdn-212/totwallet/domain"
+	"github.com/devhdn-212/totwallet/dto"
+	"github.com/devhdn-212/totwallet/internal/connection"
+	"github.com/devhdn-212/totwallet/internal/util"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
 
 type adminApi struct {
-	adminService     domain.AdminService
-	adminruleService domain.AdminruleService
+	adminService domain.AdminService
 }
 
 func NewAdminApi(app *fiber.App,
-	adminService domain.AdminService, adminruleService domain.AdminruleService,
+	adminService domain.AdminService,
 	authmidle fiber.Handler) {
 	ad := adminApi{
-		adminService:     adminService,
-		adminruleService: adminruleService,
+		adminService: adminService,
 	}
 	admin := app.Group("/api/admin", authmidle)
 	admin.Post("", ad.Index)
@@ -35,21 +33,15 @@ func (ad *adminApi) Index(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
-	resselect, errselect := ad.adminruleService.Select(c)
-	if errselect != nil {
-		return ctx.Status(http.StatusInternalServerError).
-			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
-	}
 	res, err := ad.adminService.All(c)
 	if err != nil {
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
 	return ctx.JSON(fiber.Map{
-		"status":        fiber.StatusOK,
-		"message":       "success",
-		"listadminrule": resselect,
-		"record":        res,
+		"status":  fiber.StatusOK,
+		"message": "success",
+		"record":  res,
 	})
 }
 func (ad *adminApi) Save(ctx *fiber.Ctx) error {
@@ -77,13 +69,6 @@ func (ad *adminApi) Save(ctx *fiber.Ctx) error {
 	}
 	datatoken := ctx.Locals("client_username").(string)
 	client_username := util.Parsing_final(datatoken)
-	flagpage := util.Validpage(client_username, "ADMIN-SAVE")
-	if !flagpage {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status":  fiber.StatusForbidden,
-			"message": "Please Contact Admin",
-		})
-	}
 
 	err := ad.adminService.Save(c, req, client_username)
 	if err != nil {

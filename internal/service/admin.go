@@ -7,11 +7,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/devhdn-212/totmaster_api/domain"
-	"github.com/devhdn-212/totmaster_api/dto"
-	"github.com/devhdn-212/totmaster_api/internal/connection"
-	"github.com/devhdn-212/totmaster_api/internal/repository"
-	"github.com/devhdn-212/totmaster_api/internal/util"
+	"github.com/devhdn-212/totwallet/domain"
+	"github.com/devhdn-212/totwallet/dto"
+	"github.com/devhdn-212/totwallet/internal/connection"
+	"github.com/devhdn-212/totwallet/internal/repository"
+	"github.com/devhdn-212/totwallet/internal/util"
 
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -65,11 +65,11 @@ func (a adminService) All(ctx context.Context) ([]dto.AdminData, error) {
 			lastlogin = v.Lastlogin.Time.In(util.LocJakarta).Format("2006-01-02 15:04:05")
 		}
 		if v.CreatedAt.Valid {
-			createdAt = v.Created + ", " + v.CreatedAt.Time.In(util.LocJakarta).Format("2006-01-02 15:04:05")
+			createdAt = util.NsToStr(v.Created) + ", " + v.CreatedAt.Time.In(util.LocJakarta).Format("2006-01-02 15:04:05")
 		}
 		if v.UpdateAt.Valid {
-			if v.Update != "" {
-				updatedAt = v.Update + ", " + v.UpdateAt.Time.In(util.LocJakarta).Format("2006-01-02 15:04:05")
+			if v.Update.Valid && v.Update.String != "" {
+				updatedAt = v.Update.String + ", " + v.UpdateAt.Time.In(util.LocJakarta).Format("2006-01-02 15:04:05")
 			} else {
 				updatedAt = ""
 			}
@@ -128,7 +128,7 @@ func (a adminService) Save(ctx context.Context, req dto.AdminSave, client_admin 
 			Lastlogin: sql.NullTime{Valid: true, Time: now},
 			Joindate:  sql.NullTime{Valid: true, Time: now},
 			Ipaddress: req.Ipaddress,
-			Created:   client_admin,
+			Created:   sql.NullString{Valid: true, String: client_admin},
 			CreatedAt: sql.NullTime{Valid: true, Time: now},
 		}
 
@@ -148,7 +148,7 @@ func (a adminService) Save(ctx context.Context, req dto.AdminSave, client_admin 
 		flag.Name = req.Name
 		flag.Status = req.Status
 		flag.Ipaddress = req.Ipaddress
-		flag.Update = client_admin
+		flag.Update = sql.NullString{Valid: true, String: client_admin}
 		flag.UpdateAt = sql.NullTime{Valid: true, Time: now}
 
 		if req.Pass != "" {

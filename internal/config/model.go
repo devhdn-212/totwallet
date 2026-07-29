@@ -5,6 +5,7 @@ type Config struct {
 	Database Database
 	Jwt      Jwt
 	Redis    Redis
+	Public   Public
 }
 
 type Server struct {
@@ -32,4 +33,10 @@ type Redis struct {
 	Port string
 	Pass string
 	Name string
+}
+
+// Public menampung kredensial buat API publik yang diakses website game eksternal
+// (endpoint credit/debit saldo & cek balance), lihat internal/api/wallet_public.go
+type Public struct {
+	ApiKey string
 }

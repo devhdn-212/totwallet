@@ -43,5 +43,8 @@ func Get() *Config {
 			Pass: os.Getenv("DB_REDIS_PASSWORD"),
 			Name: os.Getenv("DB_REDIS_NAME"),
 		},
+		Public: Public{
+			ApiKey: os.Getenv("PUBLIC_API_KEY"),
+		},
 	}
 }

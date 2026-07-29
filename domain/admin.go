@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/devhdn-212/totmaster_api/dto"
+	"github.com/devhdn-212/totwallet/dto"
 )
 
 type Admin struct {
@@ -15,12 +15,12 @@ type Admin struct {
 	Status    string       `db:"statuslogin"`
 	Lastlogin sql.NullTime `db:"lastlogin"`
 	Joindate  sql.NullTime `db:"joindate"`
-	Ipaddress string       `db:"ipaddress"`
-	Timezone  string       `db:"timezone"`
-	Created   string       `db:"createadmin"`
-	CreatedAt sql.NullTime `db:"createdateadmin"`
-	Update    string       `db:"updateadmin"`
-	UpdateAt  sql.NullTime `db:"updatedateadmin"`
+	Ipaddress string         `db:"ipaddress"`
+	Timezone  string         `db:"timezone"`
+	Created   sql.NullString `db:"create_by"`
+	CreatedAt sql.NullTime   `db:"create_at"`
+	Update    sql.NullString `db:"update_by"`
+	UpdateAt  sql.NullTime   `db:"update_at"`
 }
 type AdminsRepository interface {
 	FindAll(ctx context.Context) ([]Admin, error)

@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/devhdn-212/totmaster_api/dto"
-	"github.com/devhdn-212/totmaster_api/internal/api"
-	"github.com/devhdn-212/totmaster_api/internal/config"
-	"github.com/devhdn-212/totmaster_api/internal/connection"
-	"github.com/devhdn-212/totmaster_api/internal/repository"
-	"github.com/devhdn-212/totmaster_api/internal/service"
+	"github.com/devhdn-212/totwallet/dto"
+	"github.com/devhdn-212/totwallet/internal/api"
+	"github.com/devhdn-212/totwallet/internal/config"
+	"github.com/devhdn-212/totwallet/internal/connection"
+	"github.com/devhdn-212/totwallet/internal/repository"
+	"github.com/devhdn-212/totwallet/internal/service"
 
 	jwtMid "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
@@ -77,6 +77,12 @@ func main() {
 		logger.Info("http_request", fields...)
 		return err
 	})
+	app.Static("/", "./web2026/dist", fiber.Static{
+		Compress:  true,
+		ByteRange: true,
+		Browse:    false,
+		Index:     "index.html",
+	})
 
 	jwtMidd := jwtMid.New(jwtMid.Config{
 		SigningKey: jwtMid.SigningKey{Key: []byte(cnf.Jwt.Key), JWTAlg: "HS256"},
@@ -120,48 +126,19 @@ func main() {
 	})
 	pgxExec := repository.NewPGXExecutor(dbPool)
 	adminRepository := repository.NewAdminRepository(pgxExec)
-	adminruleRepository := repository.NewAdminruleRepository(pgxExec)
-	clientruleRepository := repository.NewClientruleRepository(pgxExec)
-	currRepository := repository.NewCurrRepository(pgxExec)
-	domainRepository := repository.NewDomainRepository(pgxExec)
-	groupcompanyRepository := repository.NewGroupcompanyRepository(pgxExec)
-	companyRepository := repository.NewCompanyRepository(pgxExec)
-	companyadminRepository := repository.NewCompanyadminRepository(pgxExec)
-	companypasaranRepository := repository.NewCompanypasaranRepository(pgxExec)
-	companyconftotoRepository := repository.NewCompanyconftotoRepository(pgxExec)
-	customerRepository := repository.NewCustomerRepository(pgxExec)
-	pasarantotoRepository := repository.NewPasarantotoRepository(pgxExec)
-	settingRepository := repository.NewSettingRepository(pgxExec)
+	walletRepository := repository.NewWalletRepository(pgxExec)
+	walletTrxRepository := repository.NewWalletTransactionRepository(pgxExec)
 
 	adminService := service.NewAdminService(dbPool, adminRepository)
-	adminruleService := service.NewAdminruleService(dbPool, adminruleRepository)
-	clinetruleService := service.NewClientruleService(dbPool, clientruleRepository)
-	currService := service.NewCurrService(dbPool, currRepository)
-	domainService := service.NewDomainService(dbPool, domainRepository)
-	groupcompanyService := service.NewGroupCompanyService(dbPool, groupcompanyRepository)
-	companyService := service.NewCompanyService(dbPool, companyRepository)
-	companyadminService := service.NewCompanyadminService(dbPool, companyadminRepository)
-	companypasaranService := service.NewCompaypasaranService(dbPool, companypasaranRepository)
-	companyconftotoService := service.NewCompanyconftotoService(dbPool, companyconftotoRepository)
-	customerService := service.NewCustomerService(dbPool, customerRepository)
-	pasarantotoService := service.NewPasarantotoService(dbPool, pasarantotoRepository)
-	settingService := service.NewSettingService(dbPool, settingRepository)
-	authService := service.NewAuth(dbPool, cnf, adminRepository, adminruleRepository)
+	authService := service.NewAuth(dbPool, cnf, adminRepository)
+	walletService := service.NewWalletService(dbPool, walletRepository)
+	walletTrxService := service.NewWalletTransactionService(dbPool, walletTrxRepository)
 
-	api.NewAdminApi(app, adminService, adminruleService, jwtMidd)
-	api.NewAdminruleApi(app, adminruleService, jwtMidd)
-	api.NewClientruleApi(app, clinetruleService, jwtMidd)
-	api.NewCurrApi(app, currService, jwtMidd)
-	api.NewDomainApi(app, domainService, jwtMidd)
-	api.NewGroupcompanyApi(app, groupcompanyService, jwtMidd)
-	api.NewCompanyApi(app, companyService, groupcompanyService, currService, clinetruleService, pasarantotoService, jwtMidd)
-	api.NewCompanyadminApi(app, companyadminService, jwtMidd)
-	api.NewCompanypasaranApi(app, companypasaranService, jwtMidd)
-	api.NewCompanyconftotoApi(app, companyconftotoService, jwtMidd)
-	api.NewPasarantotoApi(app, pasarantotoService, jwtMidd)
-	api.NewSettingApi(app, settingService, jwtMidd)
-	api.NewCustomer(app, customerService, jwtMidd)
+	api.NewAdminApi(app, adminService, jwtMidd)
 	api.NewAuth(app, authService, jwtMidd)
+	api.NewWalletApi(app, walletService, jwtMidd)
+	api.NewWalletTransactionApi(app, walletTrxService, jwtMidd)
+	api.NewWalletPublicApi(app, walletService, walletTrxService, cnf.Public.ApiKey)
 
 	go func() {
 		appsPort := cnf.Server.Port

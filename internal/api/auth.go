@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/devhdn-212/totmaster_api/domain"
-	"github.com/devhdn-212/totmaster_api/dto"
-	"github.com/devhdn-212/totmaster_api/internal/connection"
-	"github.com/devhdn-212/totmaster_api/internal/util"
+	"github.com/devhdn-212/totwallet/domain"
+	"github.com/devhdn-212/totwallet/dto"
+	"github.com/devhdn-212/totwallet/internal/connection"
+	"github.com/devhdn-212/totwallet/internal/util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -18,8 +18,7 @@ import (
 )
 
 type authApi struct {
-	authService      domain.AuthService
-	adminruleService domain.AdminruleService
+	authService domain.AuthService
 }
 
 func NewAuth(app *fiber.App,
@@ -101,16 +100,6 @@ func (a authApi) Page(ctx *fiber.Ctx) error {
 			JSON(dto.CreateResponseErrorData(http.StatusBadRequest, "validation failed", fails))
 	}
 
-	datatoken := ctx.Locals("client_username").(string)
-	client_username := util.Parsing_final(datatoken)
-	fmt.Println("Username: ", client_username)
-	flagpage := util.Validpage(client_username, req.Page)
-	if !flagpage {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status":  fiber.StatusForbidden,
-			"message": "Please Contact Admin",
-		})
-	}
 	return ctx.JSON(fiber.Map{
 		"status":  fiber.StatusOK,
 		"message": "success",

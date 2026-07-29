@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/devhdn-212/totmaster_api/domain"
-	"github.com/devhdn-212/totmaster_api/dto"
-	"github.com/devhdn-212/totmaster_api/internal/config"
-	"github.com/devhdn-212/totmaster_api/internal/connection"
-	"github.com/devhdn-212/totmaster_api/internal/repository"
-	"github.com/devhdn-212/totmaster_api/internal/util"
+	"github.com/devhdn-212/totwallet/domain"
+	"github.com/devhdn-212/totwallet/dto"
+	"github.com/devhdn-212/totwallet/internal/config"
+	"github.com/devhdn-212/totwallet/internal/connection"
+	"github.com/devhdn-212/totwallet/internal/repository"
+	"github.com/devhdn-212/totwallet/internal/util"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -25,21 +25,18 @@ const (
 )
 
 type authService struct {
-	db                  *pgxpool.Pool
-	conf                *config.Config
-	adminRepository     domain.AdminsRepository
-	adminruleRepository domain.AdminruleRepository
+	db              *pgxpool.Pool
+	conf            *config.Config
+	adminRepository domain.AdminsRepository
 }
 
 func NewAuth(db *pgxpool.Pool,
 	cnf *config.Config,
-	adminRepository domain.AdminsRepository,
-	adminruleRepository domain.AdminruleRepository) domain.AuthService {
+	adminRepository domain.AdminsRepository) domain.AuthService {
 	return authService{
-		db:                  db,
-		conf:                cnf,
-		adminRepository:     adminRepository,
-		adminruleRepository: adminruleRepository,
+		db:              db,
+		conf:            cnf,
+		adminRepository: adminRepository,
 	}
 }
 func (a authService) Login(ctx context.Context, req dto.AuthRequest) (dto.AuthResponse, error) {
@@ -58,13 +55,7 @@ func (a authService) Login(ctx context.Context, req dto.AuthRequest) (dto.AuthRe
 		return dto.AuthResponse{}, errors.New("Username / Password Not Found")
 	}
 
-	// 3. Ambil Rule (Hak Akses)
-	rule, errrule := a.adminruleRepository.GetRule(ctx, user.Idadmin)
-	if errrule != nil {
-		return dto.AuthResponse{}, errors.New("Please contact Admin")
-	}
-
-	// 4. Update Last Login menggunakan Transaksi PGX
+	// 3. Update Last Login menggunakan Transaksi PGX
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return dto.AuthResponse{}, err
@@ -93,7 +84,6 @@ func (a authService) Login(ctx context.Context, req dto.AuthRequest) (dto.AuthRe
 	var clientRedis dto.AuthClientRedis
 	clientRedis.Username = user.Username
 	clientRedis.IDrule = user.Idadmin
-	clientRedis.Rule = rule
 
 	// Enkripsi username untuk payload token
 	dataclient_encr, keymap := util.Encryption(user.Username)

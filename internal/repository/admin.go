@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/devhdn-212/totmaster_api/domain"
-	"github.com/devhdn-212/totmaster_api/internal/config"
+	"github.com/devhdn-212/totwallet/domain"
+	"github.com/devhdn-212/totwallet/internal/config"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -40,11 +40,11 @@ func (a adminRepository) FindAll(ctx context.Context) ([]domain.Admin, error) {
 
 func (a adminRepository) FindByUsername(ctx context.Context, username string) (domain.Admin, error) {
 	var c domain.Admin
-	query := `SELECT 
-                username, password, idadmin, name, statuslogin, 
-                lastlogin, joindate, ipaddress, timezone, 
-                createadmin, createdateadmin, updateadmin, updatedateadmin 
-              FROM ` + config.DB_tbl_admin + ` 
+	query := `SELECT
+                username, password, idadmin, name, statuslogin,
+                lastlogin, joindate, ipaddress, timezone,
+                create_by, create_at, update_by, update_at
+              FROM ` + config.DB_tbl_admin + `
               WHERE username = $1 LIMIT 1`
 
 	err := a.db.QueryRow(ctx, query, username).Scan(
@@ -74,8 +74,8 @@ func (a adminRepository) FindByUsername(ctx context.Context, username string) (d
 
 func (a adminRepository) Save(ctx context.Context, admin *domain.Admin) error {
 	// Gunakan mapping manual atau pastikan urutan kolom sesuai
-	query := `INSERT INTO ` + config.DB_tbl_admin + ` 
-                (username, password, idadmin, name, statuslogin, ipaddress, createadmin, createdateadmin) 
+	query := `INSERT INTO ` + config.DB_tbl_admin + `
+                (username, password, idadmin, name, statuslogin, ipaddress, create_by, create_at)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	_, err := a.db.Exec(ctx, query,
@@ -86,14 +86,14 @@ func (a adminRepository) Save(ctx context.Context, admin *domain.Admin) error {
 }
 
 func (a adminRepository) Update(ctx context.Context, admin *domain.Admin) error {
-	query := `UPDATE ` + config.DB_tbl_admin + ` SET 
-                password = $1, 
-                idadmin = $2, 
-                name = $3, 
-                statuslogin = $4, 
-                ipaddress = $5, 
-                updateadmin = $6, 
-                updatedateadmin = $7 
+	query := `UPDATE ` + config.DB_tbl_admin + ` SET
+                password = $1,
+                idadmin = $2,
+                name = $3,
+                statuslogin = $4,
+                ipaddress = $5,
+                update_by = $6,
+                update_at = $7
               WHERE username = $8`
 
 	res, err := a.db.Exec(ctx, query,
@@ -116,13 +116,13 @@ func (a adminRepository) Update(ctx context.Context, admin *domain.Admin) error 
 	return nil
 }
 func (a adminRepository) UpdateNotPassword(ctx context.Context, admin *domain.Admin) error {
-	query := `UPDATE ` + config.DB_tbl_admin + ` SET 
-                idadmin = $1, 
-                name = $2, 
-                statuslogin = $3, 
-                ipaddress = $4, 
-                updateadmin = $5, 
-                updatedateadmin = $6 
+	query := `UPDATE ` + config.DB_tbl_admin + ` SET
+                idadmin = $1,
+                name = $2,
+                statuslogin = $3,
+                ipaddress = $4,
+                update_by = $5,
+                update_at = $6
               WHERE username = $7`
 
 	res, err := a.db.Exec(ctx, query,
