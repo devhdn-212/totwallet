@@ -1,0 +1,22 @@
+steps:
+  # 1. Build image Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/winsoft-isd-cm/totwallet:latest', '.']
+
+  # 2. Push image ke Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/winsoft-isd-cm/totwallet:latest']
+
+  # 3. PERINTAH DARI CLOUD BUILD KE CLOUD RUN UNTUK DEPLOY AUTOMATIS!
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'totwallet'  # <-- Ubah jadi nama service Cloud Run kamu!
+      - '--image=gcr.io/winsoft-isd-cm/totwallet:latest'
+      - '--region=europe-west1'     # <-- Ubah ke region kamu (misal: asia-southeast1 / us-central1)
+      - '--port=6167'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
