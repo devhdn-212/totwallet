@@ -97,7 +97,7 @@ func SetRedis(key string, data interface{}, expire time.Duration, db ...int) err
 
 	err = client.Set(ctx, key, jsonData, expire).Err()
 	if err != nil {
-		Log.Fatal("Redis Set failed : ", zap.Error(err))
+		Log.Error("Redis Set failed : ", zap.Error(err))
 		return err
 	}
 	return nil
