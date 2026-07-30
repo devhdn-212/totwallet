@@ -47,17 +47,17 @@
                 }),
             });
             const json = await res.json();
-            if (json.status == 500) {
+            if (json.status == 200) {
+                setToken(json.token)
+                replace("/");
+            } else if (json.status == 401) {
                 // flag_button = true;
                 toast.error('Error', {description:json.message});
                 user_field.username = ""
                 user_field.password = ""
-            } else if(json.status == 200) {
-                setToken(json.token)
-                replace("/");
-            }else{
+            } else {
                 // flag_button = true;
-                alert("Server trouble, please contact admin");
+                toast.error('Error', {description: json.message || "Server trouble, please contact admin"});
             }
         }
     }

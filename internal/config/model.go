@@ -6,6 +6,7 @@ type Config struct {
 	Jwt      Jwt
 	Redis    Redis
 	Public   Public
+	Telegram Telegram
 }
 
 type Server struct {
@@ -39,4 +40,11 @@ type Redis struct {
 // (endpoint credit/debit saldo & cek balance), lihat internal/api/wallet_public.go
 type Public struct {
 	ApiKey string
+}
+
+// Telegram dipakai buat kirim notifikasi kalau ada server error (500) — lihat
+// internal/connection/telegram.go
+type Telegram struct {
+	BotToken string
+	ChatID   string
 }

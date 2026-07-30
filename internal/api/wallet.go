@@ -33,6 +33,7 @@ func (wa *walletApi) Index(ctx *fiber.Ctx) error {
 
 	res, err := wa.walletService.Index(c)
 	if err != nil {
+		go connection.NotifyServerError("Member.Index", err, "")
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
@@ -102,6 +103,8 @@ func (wa *walletApi) Save(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusNotFound).
 				JSON(dto.CreateResponseError(http.StatusNotFound, "member not found"))
 		}
+		// Jangan sertakan req.Password mentah di notifikasi — cuma username.
+		go connection.NotifyServerError("Member.Save", err, "username="+req.Username)
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}

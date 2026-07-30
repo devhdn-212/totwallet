@@ -20,8 +20,15 @@ func NewAdminRepository(db DBExecutor) domain.AdminsRepository {
 	}
 }
 func (a adminRepository) FindAll(ctx context.Context) ([]domain.Admin, error) {
-	// Menggunakan ORDER BY sesuai logika awal
-	query := `SELECT * FROM ` + config.DB_tbl_admin + ` ORDER BY lastlogin DESC`
+	// Kolom eksplisit (BUKAN SELECT *) — tabel production tbl_admin masih ada kolom
+	// legacy (createadmin/createdateadmin/updateadmin/updatedateadmin) peninggalan
+	// schema lama yang gak ada di domain.Admin. SELECT * bakal gagal di-scan gara-gara
+	// RowToStructByName gak nemu field yang cocok buat kolom-kolom legacy itu.
+	query := `SELECT
+                username, password, idadmin, name, statuslogin,
+                lastlogin, joindate, ipaddress, timezone,
+                create_by, create_at, update_by, update_at
+              FROM ` + config.DB_tbl_admin + ` ORDER BY lastlogin DESC`
 
 	rows, err := a.db.Query(ctx, query)
 	if err != nil {

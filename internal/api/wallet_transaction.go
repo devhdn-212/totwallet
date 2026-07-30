@@ -129,6 +129,7 @@ func handleTrxError(ctx *fiber.Ctx, err error, endpoint string, req any) error {
 		return ctx.Status(http.StatusConflict).
 			JSON(dto.CreateResponseError(http.StatusConflict, "duplicate transaction: refno already processed"))
 	default:
+		go connection.NotifyServerError(endpoint, err, string(recordJson))
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}

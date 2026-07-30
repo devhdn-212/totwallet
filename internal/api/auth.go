@@ -67,8 +67,13 @@ func (a authApi) Login(ctx *fiber.Ctx) error {
 
 	res, err := a.authService.Login(c, req)
 	if err != nil {
+		if err == util.ErrInvalidCredentials {
+			return ctx.Status(http.StatusUnauthorized).
+				JSON(dto.CreateResponseError(http.StatusUnauthorized, err.Error()))
+		}
+		go connection.NotifyServerError("Login", err, "username="+req.Username)
 		return ctx.Status(http.StatusInternalServerError).
-			JSON(dto.CreateResponseError(http.StatusInternalServerError, err.Error()))
+			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
 	return ctx.JSON(fiber.Map{
 		"status":  fiber.StatusOK,

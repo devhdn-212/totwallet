@@ -8,13 +8,13 @@ import (
 )
 
 type Admin struct {
-	Username  string       `db:"username"`
-	Pass      string       `db:"password"`
-	Idadmin   string       `db:"idadmin"`
-	Name      string       `db:"name"`
-	Status    string       `db:"statuslogin"`
-	Lastlogin sql.NullTime `db:"lastlogin"`
-	Joindate  sql.NullTime `db:"joindate"`
+	Username  string         `db:"username"`
+	Pass      string         `db:"password"`
+	Idadmin   string         `db:"idadmin"`
+	Name      string         `db:"name"`
+	Status    string         `db:"statuslogin"`
+	Lastlogin sql.NullTime   `db:"lastlogin"`
+	Joindate  sql.NullTime   `db:"joindate"`
 	Ipaddress string         `db:"ipaddress"`
 	Timezone  string         `db:"timezone"`
 	Created   sql.NullString `db:"create_by"`

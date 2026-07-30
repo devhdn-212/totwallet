@@ -46,13 +46,13 @@ func (a authService) Login(ctx context.Context, req dto.AuthRequest) (dto.AuthRe
 		return dto.AuthResponse{}, err
 	}
 	if user.Username == "" {
-		return dto.AuthResponse{}, errors.New("Username / Password Not Found")
+		return dto.AuthResponse{}, util.ErrInvalidCredentials
 	}
 
 	// 2. Verifikasi Password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Pass), []byte(req.Password))
 	if err != nil {
-		return dto.AuthResponse{}, errors.New("Username / Password Not Found")
+		return dto.AuthResponse{}, util.ErrInvalidCredentials
 	}
 
 	// 3. Update Last Login menggunakan Transaksi PGX

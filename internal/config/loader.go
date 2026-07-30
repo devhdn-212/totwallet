@@ -47,5 +47,9 @@ func Get() *Config {
 		Public: Public{
 			ApiKey: os.Getenv("PUBLIC_API_KEY"),
 		},
+		Telegram: Telegram{
+			BotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
+			ChatID:   os.Getenv("TELEGRAM_CHAT_ID"),
+		},
 	}
 }

@@ -35,6 +35,7 @@ func (ad *adminApi) Index(ctx *fiber.Ctx) error {
 
 	res, err := ad.adminService.All(c)
 	if err != nil {
+		go connection.NotifyServerError("Admin.Index", err, "")
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
@@ -84,6 +85,8 @@ func (ad *adminApi) Save(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusConflict).
 				JSON(dto.CreateResponseError(http.StatusConflict, "Duplicate Entry"))
 		}
+		// Jangan sertakan req.Pass mentah di notifikasi — cuma username, bukan password.
+		go connection.NotifyServerError("Admin.Save", err, "username="+req.Username)
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}

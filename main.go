@@ -30,6 +30,7 @@ func main() {
 	connection.SetLogger(logger)
 
 	cnf := config.Get()
+	connection.SetTelegramConfig(cnf.Telegram)
 	// 3. Koneksi Database (pgxpool)
 	dbPool := connection.GetDatabase(cnf.Database)
 	defer dbPool.Close()

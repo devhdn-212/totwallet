@@ -206,6 +206,41 @@ Error yang mungkin dibalikin:
 | 401 | `X-API-KEY` salah/kosong |
 | 404 | tidak ada member dengan `token` tersebut |
 
+### 3.3 Notifikasi Error (Telegram)
+
+Kalau ada **server error (500)** di endpoint manapun (admin, member, transaksi, public API),
+sistem otomatis kirim pesan ke Telegram — tujuannya biar ketauan cepet tanpa harus buka log
+Railway satu-satu. Implementasi: `internal/connection/telegram.go`.
+
+**Setup:**
+1. Bikin bot baru lewat [@BotFather](https://t.me/BotFather) di Telegram (`/newbot`) → dapet
+   `TELEGRAM_BOT_TOKEN`.
+2. Kirim 1 pesan apa aja ke bot itu (atau add ke grup), lalu buka
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` di browser → cari `"chat":{"id": ...}` →
+   itu `TELEGRAM_CHAT_ID`.
+3. Isi kedua env var itu di `.env` (lokal) atau dashboard Railway (production).
+
+Kosongin salah satu/dua-duanya = fitur ini otomatis nonaktif (gak nge-block startup, gak error).
+
+**Kapan kekirim (sengaja dibatasi cuma server error, BUKAN error bisnis biasa — biar gak spam):**
+
+| Dikirim notif? | Contoh |
+|---|---|
+| ✅ Ya | Query DB gagal, koneksi database putus, bug internal lain (500) |
+| ❌ Tidak | Validasi field kosong (400), saldo kurang (400), duplikat transaksi (409), username/password salah (401), member/username gak ketemu (404) |
+
+**Format pesan:**
+```
+🚨 Wallet API — Server Error
+Endpoint: PublicTransaction
+Error: <pesan error asli>
+username=budi
+```
+
+Dikirim dari titik-titik ini: `Admin.Index`, `Admin.Save`, `Member.Index`, `Member.Save`,
+`Login`, dan `handleTrxError` (dipakai deposit/withdraw admin + `/api/public/transaction`).
+Data sensitif (password, token) sengaja **tidak pernah** disertakan di pesan notifikasi.
+
 ## 4. Environment Variables
 
 Lihat [`.env.example`](.env.example). Tambahan buat fitur ini:
@@ -214,6 +249,7 @@ Lihat [`.env.example`](.env.example). Tambahan buat fitur ini:
 |---|---|
 | `DB_REDIS_NAME` | Index Redis DB (project ini pakai **DB 2**, bukan default 0) |
 | `PUBLIC_API_KEY` | Secret yang harus dikirim website game lewat header `X-API-KEY` ke `/api/public/*` |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Notifikasi Telegram kalau ada server error (500) — lihat §3.3 |
 
 ## 5. Frontend (`web2026/`, Svelte 5 + Vite + Tailwind)
 
@@ -324,3 +360,25 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   `internal/repository/wallet_transaction.go`) — jadi BET dan WIN buat `playerinvoice` yang
   sama sekarang dua-duanya tetap diproses & tercatat terpisah, cuma pengulangan source yang
   sama persis yang di-anggap duplikat.
+- **Bug fix — halaman Admin error 500 (`/api/admin`)**: ketauan dari testing production —
+  `internal/repository/admin.go` fungsi `FindAll` pakai `SELECT *`, dan tabel `tbl_admin` di
+  database production ternyata **masih punya kolom legacy** peninggalan schema lama
+  (`createadmin`, `createdateadmin`, `updateadmin`, `updatedateadmin` — 4 kolom ekstra di luar
+  13 kolom yang didefinisikan `sql/schema.sql`). `pgx.RowToStructByName` gagal karena kolom
+  legacy itu gak punya field yang cocok di `domain.Admin`, jadi tiap buka halaman Admin selalu
+  500. Fix: `FindAll` diganti pakai daftar kolom eksplisit (bukan `SELECT *`) — konsisten sama
+  `FindByUsername` yang emang udah dari awal begitu. Kolom legacy di database production
+  **belum dihapus** (gak masalah buat app, cuma dead weight) — kalau mau beres-beres, bisa
+  `ALTER TABLE tbl_admin DROP COLUMN createadmin, createdateadmin, updateadmin, updatedateadmin;`
+  kapan-kapan.
+- **Fitur baru — notifikasi Telegram buat server error (500)**: lihat §3.3. Ditambah
+  `internal/connection/telegram.go` (`NotifyServerError`, non-blocking via goroutine, no-op
+  kalau env var kosong), config `Telegram` (`internal/config/model.go` + `loader.go`), dan
+  dipasang di semua titik yang balikin 500: `Admin.Index/Save`, `Member.Index/Save`, `Login`,
+  `handleTrxError` (dipakai deposit/withdraw admin + `/api/public/transaction`),
+  `PublicBalance`. Sekalian kefix bug terkait: sebelumnya `Login` balikin HTTP **500** juga
+  buat username/password salah (bukan cuma error server beneran) — kalau notifikasi Telegram
+  langsung dipasang tanpa fix ini, tiap orang salah ketik password bakal spam notif. Ditambah
+  `util.ErrInvalidCredentials` (`internal/util/dberror.go`) supaya salah login sekarang balas
+  **401** (gak notif Telegram), error server beneran tetap **500** (notif). Frontend
+  `Login.svelte` disesuaikan (sebelumnya cuma cek `status==500` buat nampilin pesan error).

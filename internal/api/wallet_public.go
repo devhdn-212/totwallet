@@ -49,8 +49,26 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 		)
 		return ctx.SendStatus(http.StatusUnprocessableEntity)
 	}
+
+	// Log data mentah yang masuk SEBELUM divalidasi/diproses — biar kalau ada masalah,
+	// tinggal cek log Railway (cari path "/api/public/transaction"), langsung ketauan
+	// data apa yang beneran dikirim tanpa perlu tanya bolak-balik ke pengirim.
+	connection.Log.Info("PublicTransaction request received",
+		zap.String("invoice", req.Invoice),
+		zap.String("pasaran", req.Pasaran),
+		zap.String("playerinvoice", req.PlayerInvoice),
+		zap.String("username", req.Username),
+		zap.String("credit", req.Credit.String()),
+		zap.String("debit", req.Debit.String()),
+	)
+
 	fails := util.Validate(req)
 	if len(fails) > 0 {
+		connection.Log.Warn("PublicTransaction rejected: validation failed",
+			zap.String("username", req.Username),
+			zap.String("playerinvoice", req.PlayerInvoice),
+			zap.Any("fields", fails),
+		)
 		return ctx.Status(http.StatusBadRequest).
 			JSON(dto.CreateResponseErrorData(http.StatusBadRequest, "validation failed", fails))
 	}
@@ -58,6 +76,12 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 	creditPositive := req.Credit.GreaterThan(decimal.Zero)
 	debitPositive := req.Debit.GreaterThan(decimal.Zero)
 	if creditPositive == debitPositive {
+		connection.Log.Warn("PublicTransaction rejected: credit/debit exclusivity",
+			zap.String("username", req.Username),
+			zap.String("playerinvoice", req.PlayerInvoice),
+			zap.String("credit", req.Credit.String()),
+			zap.String("debit", req.Debit.String()),
+		)
 		return ctx.Status(http.StatusBadRequest).
 			JSON(dto.CreateResponseError(http.StatusBadRequest, "exactly one of credit or debit must be greater than zero"))
 	}
@@ -105,6 +129,14 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 		}
 		return handleTrxError(ctx, err, "PublicTransaction", req)
 	}
+
+	connection.Log.Info("PublicTransaction COMPLETE",
+		zap.String("username", req.Username),
+		zap.String("invoice", req.Invoice),
+		zap.String("playerinvoice", req.PlayerInvoice),
+		zap.String("amount", res.Amount),
+		zap.String("balance_after", res.SaldoAfter),
+	)
 	return ctx.Status(http.StatusOK).JSON(dto.CreateResponseSuccess(dto.PublicTransactionData{
 		Invoice:       req.Invoice,
 		PlayerInvoice: req.PlayerInvoice,
@@ -136,6 +168,8 @@ func (wp *walletPublicApi) Balance(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusNotFound).
 				JSON(dto.CreateResponseError(http.StatusNotFound, "member not found"))
 		}
+		// Jangan sertakan req.Token mentah di notifikasi — itu kredensial sensitif per-member.
+		go connection.NotifyServerError("PublicBalance", err, "")
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
