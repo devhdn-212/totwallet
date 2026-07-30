@@ -75,11 +75,11 @@ func (r walletTransactionRepository) FindByUsername(ctx context.Context, usernam
 	return res, nil
 }
 
-func (r walletTransactionRepository) FindByUsernameAndRefno(ctx context.Context, username, refno string) (domain.WalletTransaction, error) {
+func (r walletTransactionRepository) FindByUsernameRefnoAndSource(ctx context.Context, username, refno, source string) (domain.WalletTransaction, error) {
 	query := `SELECT ` + walletTrxColumns + ` FROM ` + config.DB_tbl_trx_transaksi + `
-	          WHERE username = $1 AND refno = $2 LIMIT 1`
+	          WHERE username = $1 AND refno = $2 AND source = $3 LIMIT 1`
 
-	rows, err := r.db.Query(ctx, query, username, refno)
+	rows, err := r.db.Query(ctx, query, username, refno, source)
 	if err != nil {
 		return domain.WalletTransaction{}, err
 	}

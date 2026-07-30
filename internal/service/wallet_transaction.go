@@ -86,16 +86,21 @@ func (s walletTransactionService) process(ctx context.Context, username, tipe, s
 		return dto.TrxData{}, util.ErrNotFound
 	}
 
-	// Idempotency: kalau refno (mis. invoice dari website game) udah pernah diproses
-	// buat username ini, balikin hasil yang lama tanpa mutasi saldo lagi. Aman dari race
-	// condition karena baris wallet di atas sudah dikunci (FOR UPDATE) duluan.
+	// Idempotency: kalau refno (mis. playerinvoice dari website game) udah pernah diproses
+	// buat username + source yang SAMA (mis. BET dua kali, atau WIN dua kali), JANGAN mutasi
+	// saldo lagi. Di-scope per source (bukan cuma username+refno) supaya BET dan WIN yang
+	// pakai playerinvoice yang sama (satu bet-slip: kena taruhan dulu, menang belakangan)
+	// tetap DUA-DUANYA tercatat & mutasi saldo masing-masing — bukan yang kedua ke-skip.
+	// Balikin util.ErrDuplicateTransaction (plus data transaksi lama, buat referensi) biar
+	// caller (API handler) bisa kasih response yang jelas beda dari sukses murni.
+	// Aman dari race condition karena baris wallet di atas sudah dikunci (FOR UPDATE) duluan.
 	if refno != "" {
-		existing, err := txTrxRepo.FindByUsernameAndRefno(ctx, username, refno)
+		existing, err := txTrxRepo.FindByUsernameRefnoAndSource(ctx, username, refno, source)
 		if err != nil {
 			return dto.TrxData{}, err
 		}
 		if existing.IDTrx != "" {
-			return toTrxData(existing), nil
+			return toTrxData(existing), util.ErrDuplicateTransaction
 		}
 	}
 

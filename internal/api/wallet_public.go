@@ -62,7 +62,11 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 			JSON(dto.CreateResponseError(http.StatusBadRequest, "exactly one of credit or debit must be greater than zero"))
 	}
 
-	keterangan := fmt.Sprintf("pasaran=%s;playerinvoice=%s", req.Pasaran, req.PlayerInvoice)
+	// refno (kunci idempotency) HARUS pakai playerinvoice, bukan invoice: satu invoice
+	// (game/draw) bisa punya banyak playerinvoice (satu per bet-slip, bisa lebih dari satu
+	// buat username yang sama). Kalau idempotency dikunci ke invoice, bet-slip ke-2/3/dst
+	// buat username yang sama dalam draw yang sama bakal ke-anggep "duplikat" dan di-skip.
+	keterangan := fmt.Sprintf("invoice=%s;pasaran=%s", req.Invoice, req.Pasaran)
 
 	var res dto.TrxData
 	var err error
@@ -70,25 +74,43 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 		res, err = wp.trxService.WinGame(c, dto.WinGameRequest{
 			Username:   req.Username,
 			Amount:     req.Credit,
-			Refno:      req.Invoice,
+			Refno:      req.PlayerInvoice,
 			Keterangan: keterangan,
 		}, publicApiCreateBy)
 	} else {
 		res, err = wp.trxService.PayoutGame(c, dto.PayoutGameRequest{
 			Username:   req.Username,
 			Amount:     req.Debit,
-			Refno:      req.Invoice,
+			Refno:      req.PlayerInvoice,
 			Keterangan: keterangan,
 		}, publicApiCreateBy)
 	}
 	if err != nil {
+		if err == util.ErrDuplicateTransaction {
+			// Bukan sukses baru & bukan error server — jelas-jelas kasih tau ini sudah
+			// pernah diproses sebelumnya, JANGAN dibalas 200 seolah baru berhasil diproses.
+			connection.Log.Warn("Duplicate playerinvoice, transaction skipped",
+				zap.String("username", req.Username),
+				zap.String("invoice", req.Invoice),
+				zap.String("playerinvoice", req.PlayerInvoice),
+			)
+			return ctx.Status(http.StatusConflict).JSON(dto.CreateResponse(http.StatusConflict,
+				"duplicate transaction: playerinvoice already processed", dto.PublicTransactionData{
+					Invoice:       req.Invoice,
+					PlayerInvoice: req.PlayerInvoice,
+					Username:      res.Username,
+					Balance:       res.SaldoAfter,
+					Status:        dto.PublicTrxStatusDuplicate,
+				}))
+		}
 		return handleTrxError(ctx, err, "PublicTransaction", req)
 	}
 	return ctx.Status(http.StatusOK).JSON(dto.CreateResponseSuccess(dto.PublicTransactionData{
-		Invoice:  req.Invoice,
-		Username: res.Username,
-		Balance:  res.SaldoAfter,
-		Status:   dto.PublicTrxStatusComplete,
+		Invoice:       req.Invoice,
+		PlayerInvoice: req.PlayerInvoice,
+		Username:      res.Username,
+		Balance:       res.SaldoAfter,
+		Status:        dto.PublicTrxStatusComplete,
 	}))
 }
 

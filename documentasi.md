@@ -113,21 +113,36 @@ X-API-KEY: <PUBLIC_API_KEY dari .env>
 
 - Wajib persis **satu** dari `credit`/`debit` yang > 0. `credit` > 0 → dicatat CREDIT/WIN.
   `debit` > 0 → dicatat DEBIT/BET (payout/kalah game).
-- `invoice` dipakai sebagai `refno` (kunci idempotency) dan **harus unik per pengiriman** —
-  kalau invoice yang sama dikirim ulang, hasil transaksi pertama yang dikembalikan lagi,
-  saldo tidak dipotong/ditambah dobel.
-- `pasaran` dan `playerinvoice` tidak punya kolom khusus di schema, disimpan gabungan di
-  kolom `keterangan` (format `pasaran=...;playerinvoice=...`).
+- `invoice` = ID game/draw, **boleh sama** di banyak request (satu draw wajar punya banyak
+  playerinvoice, bahkan bisa lebih dari satu buat username yang sama).
+- `playerinvoice` dipakai sebagai `refno` (**kunci idempotency**) dan **harus unik per bet-slip
+  per jenis kejadian (BET atau WIN)** — kalau `playerinvoice` yang sama dikirim ulang dengan
+  jenis yang SAMA (mis. BET dua kali) buat username yang sama, request ke-2 dst dianggap
+  duplikat (lihat respon `409` di bawah). **Jangan pernah pakai `invoice` sebagai idempotency
+  key di sisi kamu** — karena memang sengaja diulang per draw, kalau dipakai buat dedup malah
+  bikin bet-slip lain di draw yang sama ke-skip.
+  > Idempotency di-scope per (username, playerinvoice, source) — jadi `playerinvoice` yang SAMA
+  > boleh dipakai buat satu `BET` (pas taruhan dipasang) **dan** satu `WIN` (pas menang) buat
+  > bet-slip yang sama; dua-duanya tetap tercatat & mutasi saldo masing-masing karena beda
+  > `source`. Yang di-block cuma pengiriman ulang jenis yang sama persis.
+- `invoice` dan `pasaran` tidak punya kolom khusus di schema, disimpan gabungan di kolom
+  `keterangan` (format `invoice=...;pasaran=...`).
 
-Response sukses (`status:200`) — sengaja minimal, cuma `invoice` (buat website game cocokkan
-ke request mereka), `username`, `balance` (saldo terbaru setelah transaksi), dan `status:
-"COMPLETE"`, bukan detail ledger internal:
+Response sukses (`status:200`) — sengaja minimal, cuma `invoice`+`playerinvoice` (buat website
+game cocokkan ke request mereka), `username`, `balance` (saldo terbaru setelah transaksi), dan
+`status: "COMPLETE"`, bukan detail ledger internal:
 
 ```json
 {
   "status": 200,
   "message": "success",
-  "record": { "invoice": "12345", "username": "budi", "balance": "105000.00", "status": "COMPLETE" }
+  "record": {
+    "invoice": "12345",
+    "playerinvoice": "123451",
+    "username": "budi",
+    "balance": "105000.00",
+    "status": "COMPLETE"
+  }
 }
 ```
 
@@ -135,6 +150,28 @@ Endpoint ini **synchronous** — begitu response `200` dengan `record.status: "C
 saldo sudah ter-update & tersimpan di database saat itu juga (bukan diproses di background).
 Website pemanggil **tidak perlu polling/nunggu status lain** — kalau responnya sudah balik
 dengan `record.status: "COMPLETE"`, transaksinya sudah final.
+
+**Kalau `playerinvoice` yang sama (buat username yang sama) dikirim ulang** — HTTP **409**,
+BUKAN 200. Sengaja dibedain biar jelas kelihatan ini bukan transaksi baru yang berhasil diproses,
+tapi request yang di-skip karena udah pernah:
+
+```json
+{
+  "status": 409,
+  "message": "duplicate transaction: playerinvoice already processed",
+  "record": {
+    "invoice": "12345",
+    "playerinvoice": "123451",
+    "username": "budi",
+    "balance": "105000.00",
+    "status": "DUPLICATE"
+  }
+}
+```
+
+`record.balance` tetap dikirim (saldo terkini) biar website game tetap bisa sinkron tanpa perlu
+panggil `/balance` terpisah, tapi jangan salah artikan `409` ini sebagai "gagal total" — cuma
+berarti "gak ada state baru yang berubah dari request ini", saldo di `record.balance` tetap valid.
 
 Error yang mungkin dibalikin:
 
@@ -145,6 +182,7 @@ Error yang mungkin dibalikin:
 | 400 | `insufficient balance` — debit bikin saldo minus |
 | 401 | `X-API-KEY` salah/kosong |
 | 404 | `username` tidak ditemukan |
+| 409 | `playerinvoice` udah pernah diproses buat username ini (lihat contoh di atas) |
 
 **POST `/api/public/balance`** — cek username + saldo terkini:
 
@@ -257,3 +295,32 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   (`dto.PublicTransactionData` di `dto/wallet_transaction_data.go`) — biar website game gak perlu
   paham vocab ledger internal, dan eksplisit tau transaksinya sudah final & tersimpan (bukan
   proses async yang perlu di-polling).
+- **Bug fix — idempotency key salah field, bikin bet-slip kedua+ di draw yang sama silent-skip**:
+  ketauan waktu debugging production (client kirim debit, respon `200 COMPLETE`, tapi saldo &
+  jumlah baris di `tbl_trx_transaksi` gak berubah). Root cause: `refno` (kunci idempotency)
+  awalnya diisi dari `invoice`, padahal `invoice` itu ID game/draw yang **memang sengaja sama**
+  buat banyak `playerinvoice` (bet-slip) dalam draw yang sama — jadi bet-slip ke-2/3/dst buat
+  username yang sama ke-anggep "udah pernah diproses" dan di-skip diam-diam (tetep balas `200`).
+  Fix: `refno` sekarang diisi dari `playerinvoice` (unik per bet-slip), `invoice` cuma disimpen
+  di `keterangan` sebagai metadata. Response `/api/public/transaction` juga nambah field
+  `playerinvoice` (`internal/api/wallet_public.go`, `dto/wallet_transaction_data.go`).
+  Diagnosa langsung dari database production (query manual pgx: histori `tbl_trx_transaksi` +
+  `tbl_counter` cocok 100% sama saldo `tbl_user`, jadi kepastian bug-nya di logic idempotency,
+  bukan di penyimpanan/commit).
+- **Bug fix — response duplikat disamarkan jadi "sukses"**: sebelumnya kalau kena idempotency
+  (lihat poin di atas), API tetap balas `200 COMPLETE` kayak transaksi baru berhasil — bikin
+  susah dibedain "beneran baru diproses" vs "di-skip karena duplikat" dari sisi client.
+  Sekarang kasus duplikat balas **`409`** dengan `record.status: "DUPLICATE"` (tetap bawa
+  `balance` terkini). Ditambah `util.ErrDuplicateTransaction` (`internal/util/dberror.go`) dan
+  helper `dto.CreateResponse` (`dto/response.go`) buat bikin body response dengan `status` yang
+  konsisten sama HTTP status code aslinya (sebelumnya kalau asal pakai `CreateResponseSuccess`,
+  field `status` di body ke-hardcode 200 walau HTTP code-nya bukan 200).
+- **Bug fix — idempotency nge-block WIN gara-gara BET sebelumnya (playerinvoice sama)**:
+  ketauan sebelum sempat kejadian di production, dari pertanyaan "kalau abis BET nanti dikirim
+  WIN gimana, kan playerinvoice-nya sama?". Sebelumnya cek idempotency cuma di-scope per
+  (username, refno) — jadi WIN yang pakai `playerinvoice` yang sama kayak BET sebelumnya bakal
+  ke-anggep duplikat dan **saldo menangnya gak pernah masuk**. Fix: scope ditambah `source`
+  (`FindByUsernameRefnoAndSource`, `domain/wallet_transaction.go` +
+  `internal/repository/wallet_transaction.go`) — jadi BET dan WIN buat `playerinvoice` yang
+  sama sekarang dua-duanya tetap diproses & tercatat terpisah, cuma pengulangan source yang
+  sama persis yang di-anggap duplikat.

@@ -27,3 +27,15 @@ func CreateResponseSuccess[T any](data T) Response[T] {
 		Record:  data,
 	}
 }
+
+// CreateResponse dipakai kalau body "status" harus BEDA dari 200 tapi tetap butuh bawa data
+// bertipe (mis. 409 duplicate transaction yang tetap perlu balikin balance terkini).
+// Jangan pakai CreateResponseSuccess buat kasus ini — field status di body bakal
+// tetap ke-hardcode 200 walau HTTP status code aslinya bukan 200 (respons jadi tidak konsisten).
+func CreateResponse[T any](status int, message string, data T) Response[T] {
+	return Response[T]{
+		Status:  status,
+		Message: message,
+		Record:  data,
+	}
+}

@@ -78,17 +78,24 @@ type PublicBalanceRequest struct {
 }
 
 // PublicTransactionData adalah response API publik POST /api/public/transaction.
-// Sengaja cuma balikin invoice (buat website game cocokkan ke request mereka),
-// username, dan balance terbaru — bukan detail ledger internal (idtrx/notrx/tipe/source).
+// Sengaja cuma balikin invoice+playerinvoice (buat website game cocokkan ke request
+// mereka), username, dan balance terbaru — bukan detail ledger internal
+// (idtrx/notrx/tipe/source).
 //
 // Endpoint ini synchronous: begitu response ini balik dengan Status "COMPLETE",
 // transaksi sudah tersimpan & saldo sudah ter-update di database (bukan proses
 // background/async) — website pemanggil tidak perlu polling/nunggu status lagi.
 type PublicTransactionData struct {
-	Invoice  string `json:"invoice"`
-	Username string `json:"username"`
-	Balance  string `json:"balance"`
-	Status   string `json:"status"`
+	Invoice       string `json:"invoice"`
+	PlayerInvoice string `json:"playerinvoice"`
+	Username      string `json:"username"`
+	Balance       string `json:"balance"`
+	Status        string `json:"status"`
 }
 
-const PublicTrxStatusComplete = "COMPLETE"
+const (
+	PublicTrxStatusComplete = "COMPLETE"
+	// PublicTrxStatusDuplicate dipakai kalau playerinvoice (refno) udah pernah diproses
+	// sebelumnya buat username yang sama — request ini TIDAK memproses apapun yang baru.
+	PublicTrxStatusDuplicate = "DUPLICATE"
+)

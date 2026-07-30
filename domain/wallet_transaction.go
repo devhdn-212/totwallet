@@ -48,9 +48,12 @@ type WalletTransactionRepository interface {
 	FindByID(ctx context.Context, idtrx string) (WalletTransaction, error)
 	FindByNoTrx(ctx context.Context, notrx string) (WalletTransaction, error)
 	FindByUsername(ctx context.Context, username string, limit, offset int) ([]WalletTransaction, error)
-	// FindByUsernameAndRefno dipakai buat idempotency: cegah refno (mis. invoice dari
-	// website game) diproses dobel kalau request-nya kekirim ulang (retry/duplicate).
-	FindByUsernameAndRefno(ctx context.Context, username, refno string) (WalletTransaction, error)
+	// FindByUsernameRefnoAndSource dipakai buat idempotency: cegah refno (mis. playerinvoice
+	// dari website game) diproses dobel kalau request-nya kekirim ulang (retry/duplicate).
+	// Di-scope juga per source (WIN/BET/DEPOSIT/WITHDRAW) — playerinvoice yang sama BOLEH
+	// dipakai buat satu BET (taruhan) dan satu WIN (menang) terpisah untuk bet-slip yang sama,
+	// keduanya kejadian finansial yang beda dan harus tetap tercatat masing-masing.
+	FindByUsernameRefnoAndSource(ctx context.Context, username, refno, source string) (WalletTransaction, error)
 	// FindAll dipakai halaman admin buat menampilkan transaksi semua member.
 	FindAll(ctx context.Context, limit, offset int) ([]WalletTransaction, error)
 	Save(ctx context.Context, t *WalletTransaction) error

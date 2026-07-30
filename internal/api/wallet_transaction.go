@@ -125,6 +125,9 @@ func handleTrxError(ctx *fiber.Ctx, err error, endpoint string, req any) error {
 	case util.ErrInvalidAmount:
 		return ctx.Status(http.StatusBadRequest).
 			JSON(dto.CreateResponseError(http.StatusBadRequest, "amount must be greater than zero"))
+	case util.ErrDuplicateTransaction:
+		return ctx.Status(http.StatusConflict).
+			JSON(dto.CreateResponseError(http.StatusConflict, "duplicate transaction: refno already processed"))
 	default:
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
