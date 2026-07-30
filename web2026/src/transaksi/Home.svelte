@@ -15,9 +15,9 @@
         record = [],
         token = "",
         path_api = "",
-        title_page = "" } = $props();
+        title_page = "",
+        isLoading = false } = $props();
 
-    let loading = $state(false)
     let loadingSave = $state(false)
     let modalOpen = $state(false)
     type sMode = 'deposit' | 'withdraw';
@@ -111,8 +111,8 @@
                 <ArrowUpCircle size={14} />
                 Withdraw
             </Button>
-            <Button variant="outline" size="sm" class="cursor-pointer" onclick={RefreshPage} disabled={loading}>
-                <RefreshCw size={14} class={loading ? "animate-spin" : ""} />
+            <Button variant="outline" size="sm" class="cursor-pointer" onclick={RefreshPage} disabled={isLoading}>
+                <RefreshCw size={14} class={isLoading ? "animate-spin" : ""} />
                 Refresh
             </Button>
         </div>
@@ -137,7 +137,16 @@
                   </tr>
               </thead>
               <tbody>
-                  {#if record.length === 0}
+                  {#if isLoading}
+                      <tr>
+                          <td colspan="9" class="text-center py-10 text-muted-foreground">
+                              <div class="flex items-center justify-center gap-2">
+                                  <RefreshCw size={16} class="animate-spin" />
+                                  Memuat data...
+                              </div>
+                          </td>
+                      </tr>
+                  {:else if record.length === 0}
                       <tr>
                           <td colspan="9" class="text-center py-10 text-muted-foreground">
                               Belum ada transaksi

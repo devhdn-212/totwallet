@@ -21,12 +21,12 @@
         token = "",
         path_api = "",
         title_page = "",
-        totalrecord=0} = $props();
+        totalrecord=0,
+        isLoading=false} = $props();
 
 
     let showPassword = $state(false)
     let loadingSave = $state(false)
-    let loading = $state(false)
     let searchHome: string = $state('');
     let filterHome: any[] = $state([]);
     let modalOpen = $state(false)
@@ -201,8 +201,8 @@
                 <Plus size={14} />
                 New
             </Button>
-            <Button variant="outline" size="sm" class="cursor-pointer" onclick={RefreshPage} disabled={loading}>
-                <RefreshCw size={14} class={loading ? "animate-spin" : ""} />
+            <Button variant="outline" size="sm" class="cursor-pointer" onclick={RefreshPage} disabled={isLoading}>
+                <RefreshCw size={14} class={isLoading ? "animate-spin" : ""} />
                 Refresh
             </Button>
         </div>
@@ -235,7 +235,16 @@
                   </tr>
               </thead>
               <tbody>
-                  {#if filterHome.length === 0}
+                  {#if isLoading}
+                      <tr>
+                          <td colspan="7" class="text-center py-10 text-muted-foreground">
+                              <div class="flex items-center justify-center gap-2">
+                                  <RefreshCw size={16} class="animate-spin" />
+                                  Memuat data...
+                              </div>
+                          </td>
+                      </tr>
+                  {:else if filterHome.length === 0}
                       <tr>
                           <td colspan="7" class="text-center py-10 text-muted-foreground">
                               Data tidak ditemukan

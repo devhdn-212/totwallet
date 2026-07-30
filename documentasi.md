@@ -382,3 +382,9 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   `util.ErrInvalidCredentials` (`internal/util/dberror.go`) supaya salah login sekarang balas
   **401** (gak notif Telegram), error server beneran tetap **500** (notif). Frontend
   `Login.svelte` disesuaikan (sebelumnya cuma cek `status==500` buat nampilin pesan error).
+- **Frontend — loading state pas fetch data**: halaman Admin/Member/Transaksi udah dari awal
+  punya store `isLoading` (`src/lib/use*.ts`) dan di-passing ke `Home.svelte`, tapi propnya
+  gak pernah dipakai (nyasar ada `let loading = $state(false)` lokal yang gak pernah di-toggle,
+  cuma numpang di tombol Refresh). Sekarang `isLoading` beneran dipakai: nampilin baris
+  "Memuat data..." + ikon spinner di tabel selama fetch, dan tombol Refresh ke-disable +
+  ikonnya muter selama itu juga.
