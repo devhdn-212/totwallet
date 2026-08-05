@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/devhdn-212/totwallet/dto"
 
@@ -57,6 +58,16 @@ type WalletTransactionRepository interface {
 	// FindAll dipakai halaman admin buat menampilkan transaksi semua member.
 	FindAll(ctx context.Context, limit, offset int) ([]WalletTransaction, error)
 	Save(ctx context.Context, t *WalletTransaction) error
+	// Summary dipakai dashboard admin: agregat total deposit & withdraw dalam rentang
+	// [start, end) plus total keseluruhan transaksi.
+	Summary(ctx context.Context, start, end time.Time) (TrxSummary, error)
+}
+
+// TrxSummary adalah hasil agregat tbl_trx_transaksi buat kebutuhan dashboard admin.
+type TrxSummary struct {
+	DepositToday  decimal.Decimal
+	WithdrawToday decimal.Decimal
+	TotalTrx      int
 }
 
 type WalletTransactionService interface {

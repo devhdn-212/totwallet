@@ -93,6 +93,17 @@ func (r walletRepository) FindByUsernameForUpdate(ctx context.Context, username 
 	return w, nil
 }
 
+// CountAll dipakai dashboard admin buat total member.
+func (r walletRepository) CountAll(ctx context.Context) (int, error) {
+	query := `SELECT COUNT(*) FROM ` + config.DB_tbl_user
+
+	var count int
+	if err := r.db.QueryRow(ctx, query).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r walletRepository) Save(ctx context.Context, w *domain.Wallet) error {
 	query := `INSERT INTO ` + config.DB_tbl_user + `
 	          (username, password, token, nama, saldo, status, create_by, create_at)

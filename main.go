@@ -134,12 +134,14 @@ func main() {
 	authService := service.NewAuth(dbPool, cnf, adminRepository)
 	walletService := service.NewWalletService(dbPool, walletRepository)
 	walletTrxService := service.NewWalletTransactionService(dbPool, walletTrxRepository)
+	dashboardService := service.NewDashboardService(walletRepository, walletTrxRepository)
 
 	api.NewAdminApi(app, adminService, jwtMidd)
 	api.NewAuth(app, authService, jwtMidd)
 	api.NewWalletApi(app, walletService, jwtMidd)
 	api.NewWalletTransactionApi(app, walletTrxService, jwtMidd)
 	api.NewWalletPublicApi(app, walletService, walletTrxService, cnf.Public.ApiKey)
+	api.NewDashboardApi(app, dashboardService, jwtMidd)
 
 	go func() {
 		appsPort := cnf.Server.Port

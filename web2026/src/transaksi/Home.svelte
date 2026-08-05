@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getInputValue, sanitizeidlower, sanitizestringnormal, sanitizefloat } from "../lib/helpers";
+    import { getInputValue, sanitizeidlower, sanitizestringnormal, sanitizefloat, decimal } from "../lib/helpers";
     import * as z from "zod";
     import { toast } from "svelte-sonner"
     import { Toaster } from "$lib/components/ui/sonner"
@@ -162,8 +162,8 @@
                               <Badge variant="secondary" class="{rec.home_tipe_css}">{rec.home_tipe}</Badge>
                           </td>
                           <td class="px-4 py-3 text-center text-muted-foreground">{rec.home_source}</td>
-                          <td class="px-4 py-3 text-right font-medium">{rec.home_amount}</td>
-                          <td class="px-4 py-3 text-right">{rec.home_saldo_after}</td>
+                          <td class="px-4 py-3 text-right font-medium">{decimal(rec.home_amount)}</td>
+                          <td class="px-4 py-3 text-right">{decimal(rec.home_saldo_after)}</td>
                           <td class="px-4 py-3 text-muted-foreground text-xs">{rec.home_keterangan}</td>
                           <td class="px-4 py-3 whitespace-nowrap text-center">{rec.home_create}</td>
                       </tr>

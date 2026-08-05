@@ -42,6 +42,8 @@ type WalletRepository interface {
 	Update(ctx context.Context, w *Wallet) error
 	// UpdateSaldo menimpa saldo dengan nilai akhir yang sudah dihitung di service layer.
 	UpdateSaldo(ctx context.Context, username string, saldo decimal.Decimal, updateBy string) error
+	// CountAll dipakai dashboard admin buat total member.
+	CountAll(ctx context.Context) (int, error)
 }
 
 type WalletService interface {

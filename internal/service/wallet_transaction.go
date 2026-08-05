@@ -153,6 +153,9 @@ func (s walletTransactionService) process(ctx context.Context, username, tipe, s
 	go connection.DeleteRedis(RedisWalletAllKey)
 	go connection.DeleteRedis(RedisWalletDetail + username)
 	go connection.DeleteRedis(RedisWalletTrxHistory + username)
+	// Dashboard nampilin total deposit/withdraw hari ini -> cache-nya jadi stale begitu
+	// ada uang masuk (deposit/win) atau keluar (withdraw/bet), jadi harus di-invalidate juga.
+	go connection.DeleteRedis(RedisDashboardKey, RedisDashboardDB)
 
 	return toTrxData(trx), nil
 }

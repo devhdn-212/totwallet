@@ -86,7 +86,7 @@
         <!-- Content Area -->
         <main class="flex-1 overflow-y-auto p-6">
             {#if activePage === "dashboard"}
-                <Dashboard />
+                <Dashboard HandleLogout={HandleLogout} {path_api} />
             {:else if activePage === "transaksi"}
                 <Transaksi HandleLogout={HandleLogout} {path_api} />
             {:else if activePage === "member"}

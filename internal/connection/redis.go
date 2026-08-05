@@ -15,11 +15,13 @@ import (
 )
 
 var (
-	RDB *redis.Client
-	ctx = context.Background()
+	RDB       *redis.Client
+	ctx       = context.Background()
+	redisConf config.Redis
 )
 
 func InitRedis(conf config.Redis) error {
+	redisConf = conf
 	host := conf.Host
 	port := conf.Port
 	pwd := conf.Pass
@@ -61,19 +63,16 @@ func RedisHealth() bool {
 	return true
 }
 func getClient(db int) *redis.Client {
-	var conf config.Redis
 	if db == 0 {
 		if RDB == nil {
 			Log.Panic("Redis client not initialized. Call InitRedis() first.")
 		}
 		return RDB
 	}
-	// temporary client untuk DB lain
-	dbHost := conf.Host + ":" + conf.Port
-	dbPass := conf.Pass
+	// temporary client untuk DB lain, pakai host/port/password yang sama dengan InitRedis
 	return redis.NewClient(&redis.Options{
-		Addr:     dbHost,
-		Password: dbPass,
+		Addr:     redisConf.Host + ":" + redisConf.Port,
+		Password: redisConf.Pass,
 		DB:       db,
 	})
 }

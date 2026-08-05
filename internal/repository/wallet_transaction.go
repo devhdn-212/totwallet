@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/devhdn-212/totwallet/domain"
 	"github.com/devhdn-212/totwallet/internal/config"
@@ -109,6 +110,23 @@ func (r walletTransactionRepository) FindAll(ctx context.Context, limit, offset 
 		return nil, err
 	}
 	return res, nil
+}
+
+// Summary menghitung agregat deposit/withdraw dalam rentang [start, end) plus total
+// keseluruhan transaksi, dipakai buat dashboard admin.
+func (r walletTransactionRepository) Summary(ctx context.Context, start, end time.Time) (domain.TrxSummary, error) {
+	query := `SELECT
+	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'CREDIT' AND source = 'DEPOSIT' AND create_at >= $1 AND create_at < $2), 0),
+	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'DEBIT' AND source = 'WITHDRAW' AND create_at >= $1 AND create_at < $2), 0),
+	            COUNT(*)
+	          FROM ` + config.DB_tbl_trx_transaksi
+
+	var s domain.TrxSummary
+	err := r.db.QueryRow(ctx, query, start, end).Scan(&s.DepositToday, &s.WithdrawToday, &s.TotalTrx)
+	if err != nil {
+		return domain.TrxSummary{}, err
+	}
+	return s, nil
 }
 
 func (r walletTransactionRepository) Save(ctx context.Context, t *domain.WalletTransaction) error {

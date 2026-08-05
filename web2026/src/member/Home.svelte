@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getStatusLabel } from '../lib/status'
-    import { getInputValue, sanitizeidlower,sanitizestringnormal } from "../lib/helpers";
+    import { getInputValue, sanitizeidlower,sanitizestringnormal, decimal } from "../lib/helpers";
     import * as z from "zod";
     import { toast } from "svelte-sonner"
     import { Toaster } from "$lib/components/ui/sonner"
@@ -273,7 +273,7 @@
                           <td class="px-4 py-3 text-muted-foreground text-center">{i + 1}</td>
                           <td class="px-4 py-3 ">{rec.home_username}</td>
                           <td class="px-4 py-3">{rec.home_nama}</td>
-                          <td class="px-4 py-3 text-right font-medium">{rec.home_saldo}</td>
+                          <td class="px-4 py-3 text-right font-medium">{decimal(rec.home_saldo)}</td>
                           <td class="px-4 py-3 whitespace-nowrap text-center">{rec.home_create}</td>
                       </tr>
                       {/each}
