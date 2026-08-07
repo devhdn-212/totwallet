@@ -13,7 +13,7 @@ import (
 	"github.com/devhdn-212/totwallet/internal/repository"
 	"github.com/devhdn-212/totwallet/internal/util"
 
-	"github.com/gofiber/fiber/v2/log"
+	"github.com/gofiber/fiber/v3/log"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

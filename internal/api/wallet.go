@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/devhdn-212/totwallet/internal/connection"
 	"github.com/devhdn-212/totwallet/internal/util"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +27,7 @@ func NewWalletApi(app *fiber.App, walletService domain.WalletService, authmidle 
 	member.Post("/save", wa.Save)
 }
 
-func (wa *walletApi) Index(ctx *fiber.Ctx) error {
+func (wa *walletApi) Index(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
@@ -44,12 +44,12 @@ func (wa *walletApi) Index(ctx *fiber.Ctx) error {
 	})
 }
 
-func (wa *walletApi) Save(ctx *fiber.Ctx) error {
+func (wa *walletApi) Save(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.MemberSaveRequest
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "Save Member"),
 			zap.String("body", string(ctx.Body())),
@@ -103,7 +103,7 @@ func (wa *walletApi) Save(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusNotFound).
 				JSON(dto.CreateResponseError(http.StatusNotFound, "member not found"))
 		}
-		// Jangan sertakan req.Password mentah di notifikasi — cuma username.
+		// Jangan sertakan req.Password mentah di notifikasi â€” cuma username.
 		go connection.NotifyServerError("Member.Save", err, "username="+req.Username)
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))

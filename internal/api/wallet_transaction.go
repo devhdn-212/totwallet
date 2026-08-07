@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/devhdn-212/totwallet/internal/connection"
 	"github.com/devhdn-212/totwallet/internal/util"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 )
 
@@ -29,12 +29,12 @@ func NewWalletTransactionApi(app *fiber.App, trxService domain.WalletTransaction
 	trx.Post("/withdraw", wa.Withdraw)
 }
 
-func (wa *walletTransactionApi) Index(ctx *fiber.Ctx) error {
+func (wa *walletTransactionApi) Index(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.TrxHistoryRequest
-	_ = ctx.BodyParser(&req)
+	_ = ctx.Bind().Body(&req)
 
 	res, err := wa.trxService.History(c, req)
 	if err != nil {
@@ -58,12 +58,12 @@ func (wa *walletTransactionApi) Index(ctx *fiber.Ctx) error {
 	})
 }
 
-func (wa *walletTransactionApi) Deposit(ctx *fiber.Ctx) error {
+func (wa *walletTransactionApi) Deposit(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.DepositRequest
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "Deposit"),
 			zap.String("body", string(ctx.Body())),
@@ -87,12 +87,12 @@ func (wa *walletTransactionApi) Deposit(ctx *fiber.Ctx) error {
 	return ctx.Status(http.StatusOK).JSON(dto.CreateResponseSuccess(res))
 }
 
-func (wa *walletTransactionApi) Withdraw(ctx *fiber.Ctx) error {
+func (wa *walletTransactionApi) Withdraw(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.WithdrawRequest
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "Withdraw"),
 			zap.String("body", string(ctx.Body())),
@@ -118,7 +118,7 @@ func (wa *walletTransactionApi) Withdraw(ctx *fiber.Ctx) error {
 
 // handleTrxError menyeragamkan mapping error service transaksi -> HTTP status,
 // dipakai baik oleh endpoint admin (deposit/withdraw) maupun API publik.
-func handleTrxError(ctx *fiber.Ctx, err error, endpoint string, req any) error {
+func handleTrxError(ctx fiber.Ctx, err error, endpoint string, req any) error {
 	recordJson, _ := json.Marshal(req)
 	connection.Log.Error("Failed to process transaction",
 		zap.String("endpoint", endpoint),

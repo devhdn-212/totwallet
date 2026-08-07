@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/devhdn-212/totwallet/internal/connection"
 	"github.com/devhdn-212/totwallet/internal/util"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 )
@@ -34,14 +34,14 @@ func NewWalletPublicApi(app *fiber.App, walletService domain.WalletService, trxS
 }
 
 // Transaction menerima laporan hasil game dari website eksternal. Field wajib:
-// invoice, pasaran, playerinvoice, username, credit, debit — persis satu dari
+// invoice, pasaran, playerinvoice, username, credit, debit â€” persis satu dari
 // credit/debit yang harus > 0 (credit = member menang/WIN, debit = taruhan/BET).
-func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
+func (wp *walletPublicApi) Transaction(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.PublicTransactionRequest
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "PublicTransaction"),
 			zap.String("body", string(ctx.Body())),
@@ -50,7 +50,7 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 		return ctx.SendStatus(http.StatusUnprocessableEntity)
 	}
 
-	// Log data mentah yang masuk SEBELUM divalidasi/diproses — biar kalau ada masalah,
+	// Log data mentah yang masuk SEBELUM divalidasi/diproses â€” biar kalau ada masalah,
 	// tinggal cek log Railway (cari path "/api/public/transaction"), langsung ketauan
 	// data apa yang beneran dikirim tanpa perlu tanya bolak-balik ke pengirim.
 	connection.Log.Info("PublicTransaction request received",
@@ -111,7 +111,7 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 	}
 	if err != nil {
 		if err == util.ErrDuplicateTransaction {
-			// Bukan sukses baru & bukan error server — jelas-jelas kasih tau ini sudah
+			// Bukan sukses baru & bukan error server â€” jelas-jelas kasih tau ini sudah
 			// pernah diproses sebelumnya, JANGAN dibalas 200 seolah baru berhasil diproses.
 			connection.Log.Warn("Duplicate playerinvoice, transaction skipped",
 				zap.String("username", req.Username),
@@ -148,12 +148,12 @@ func (wp *walletPublicApi) Transaction(ctx *fiber.Ctx) error {
 
 // Balance mengembalikan username + saldo terkini milik member berdasarkan token
 // (tbl_user.token) yang dikirim website game.
-func (wp *walletPublicApi) Balance(ctx *fiber.Ctx) error {
+func (wp *walletPublicApi) Balance(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.PublicBalanceRequest
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		return ctx.SendStatus(http.StatusUnprocessableEntity)
 	}
 	fails := util.Validate(req)
@@ -168,7 +168,7 @@ func (wp *walletPublicApi) Balance(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusNotFound).
 				JSON(dto.CreateResponseError(http.StatusNotFound, "member not found"))
 		}
-		// Jangan sertakan req.Token mentah di notifikasi — itu kredensial sensitif per-member.
+		// Jangan sertakan req.Token mentah di notifikasi â€” itu kredensial sensitif per-member.
 		go connection.NotifyServerError("PublicBalance", err, "")
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))

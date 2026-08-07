@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/devhdn-212/totwallet/internal/connection"
 	"github.com/devhdn-212/totwallet/internal/util"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +29,7 @@ func NewAdminApi(app *fiber.App,
 	admin.Post("", ad.Index)
 	admin.Post("/save", ad.Save)
 }
-func (ad *adminApi) Index(ctx *fiber.Ctx) error {
+func (ad *adminApi) Index(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
@@ -45,12 +45,12 @@ func (ad *adminApi) Index(ctx *fiber.Ctx) error {
 		"record":  res,
 	})
 }
-func (ad *adminApi) Save(ctx *fiber.Ctx) error {
+func (ad *adminApi) Save(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.AdminSave
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "Create Admin"),
 			zap.String("body", string(ctx.Body())),
@@ -85,7 +85,7 @@ func (ad *adminApi) Save(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusConflict).
 				JSON(dto.CreateResponseError(http.StatusConflict, "Duplicate Entry"))
 		}
-		// Jangan sertakan req.Pass mentah di notifikasi — cuma username, bukan password.
+		// Jangan sertakan req.Pass mentah di notifikasi â€” cuma username, bukan password.
 		go connection.NotifyServerError("Admin.Save", err, "username="+req.Username)
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))

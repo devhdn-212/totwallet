@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -16,13 +15,14 @@ import (
 	"github.com/devhdn-212/totwallet/internal/repository"
 	"github.com/devhdn-212/totwallet/internal/service"
 
-	jwtMid "github.com/gofiber/contrib/jwt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/etag"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
-	storageRedis "github.com/gofiber/storage/redis/v3"
+	jwtMid "github.com/gofiber/contrib/v3/jwt"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/etag"
+	"github.com/gofiber/fiber/v3/middleware/limiter"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
+	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -51,11 +51,11 @@ func main() {
 	app := fiber.New()
 	app.Use(requestid.New())
 	app.Use(etag.New())
-	app.Use(func(c *fiber.Ctx) error {
+	app.Use(func(c fiber.Ctx) error {
 		start := time.Now()
 		err := c.Next()
 		latency := time.Since(start)
-		rid, _ := c.Locals("requestid").(string)
+		rid := requestid.FromContext(c)
 		fields := []zap.Field{
 			zap.String("request_id", rid),
 			zap.String("method", c.Method()),
@@ -84,37 +84,34 @@ func main() {
 
 	// 5. Rate limit global endpoint /api — per IP, counter di Redis (DB yang sama dengan
 	// cache) supaya limit konsisten antar restart/multi instance. `/api/auth` punya limiter
-	// sendiri yang lebih ketat (lihat internal/api/auth.go).
+	// sendiri yang lebih ketat (lihat internal/api/auth.go). Storage pakai koneksi Redis
+	// yang sama dengan cache (connection.RDB) via adapter go-redis, bukan storage gofiber.
 	app.Use("/api", limiter.New(limiter.Config{
 		Max:        cnf.Limiter.Max,
 		Expiration: time.Duration(cnf.Limiter.Exp) * time.Minute,
-		KeyGenerator: func(c *fiber.Ctx) string {
+		KeyGenerator: func(c fiber.Ctx) string {
 			return c.IP()
 		},
-		LimitReached: func(c *fiber.Ctx) error {
+		LimitReached: func(c fiber.Ctx) error {
 			return c.Status(fiber.StatusTooManyRequests).
 				JSON(dto.CreateResponseError(fiber.StatusTooManyRequests, "too many requests"))
 		},
-		Storage: storageRedis.New(storageRedis.Config{
-			Host:     cnf.Redis.Host,
-			Port:     redisPort(cnf.Redis.Port),
-			Password: cnf.Redis.Pass,
-			Database: redisDB(cnf.Redis.Name),
-		}),
+		Storage: NewRedisStorage(connection.RDB),
 	}))
 
-	app.Static("/", "./web2026/dist", fiber.Static{
-		Compress:  true,
-		ByteRange: true,
-		Browse:    false,
-		Index:     "index.html",
-	})
+	// Serve static frontend build (Svelte). Di Fiber v3 app.Static dipindah jadi middleware static.
+	app.Use("/", static.New("./web2026/dist", static.Config{
+		Compress:   true,
+		ByteRange:  true,
+		Browse:     false,
+		IndexNames: []string{"index.html"},
+	}))
 
 	jwtMidd := jwtMid.New(jwtMid.Config{
 		SigningKey: jwtMid.SigningKey{Key: []byte(cnf.Jwt.Key), JWTAlg: "HS256"},
-		SuccessHandler: func(c *fiber.Ctx) error {
-			token, ok := c.Locals("user").(*jwt.Token)
-			if !ok || token == nil {
+		SuccessHandler: func(c fiber.Ctx) error {
+			token := jwtMid.FromContext(c)
+			if token == nil {
 				return c.Status(fiber.StatusUnauthorized).
 					JSON(dto.CreateResponseError(fiber.StatusUnauthorized, "invalid token"))
 			}
@@ -145,7 +142,7 @@ func main() {
 			}
 			return c.Next()
 		},
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
+		ErrorHandler: func(c fiber.Ctx, err error) error {
 			return c.Status(fiber.StatusUnauthorized).
 				JSON(dto.CreateResponseError(fiber.StatusUnauthorized, "missing token, please login"))
 		},
@@ -257,18 +254,66 @@ func NewGCPLogger() *zap.Logger {
 	return zap.New(core, zap.AddCaller())
 }
 
-func redisPort(port string) int {
-	p, err := strconv.Atoi(port)
-	if err != nil || p <= 0 {
-		return 6379
-	}
-	return p
+// redisStorage mengadaptasi *redis.Client (github.com/redis/go-redis/v9) yang sudah
+// dipakai app lewat connection.RDB ke interface fiber.Storage milik middleware limiter.
+// Dipakai supaya rate limit & cache berbagi koneksi Redis yang sama, tanpa harus
+// tergantung package storage dari gofiber.
+type redisStorage struct {
+	client *redis.Client
 }
 
-func redisDB(db string) int {
-	d, err := strconv.Atoi(db)
-	if err != nil || d < 0 {
-		return 0
+// NewRedisStorage membungkus client redis milik app sebagai fiber.Storage.
+// Client TIDAK akan ditutup oleh storage ini — umurnya dikelola connection.RDB.
+func NewRedisStorage(client *redis.Client) *redisStorage {
+	return &redisStorage{client: client}
+}
+
+func (s *redisStorage) Get(key string) ([]byte, error) {
+	return s.GetWithContext(context.Background(), key)
+}
+
+func (s *redisStorage) GetWithContext(ctx context.Context, key string) ([]byte, error) {
+	if len(key) == 0 {
+		return nil, nil
 	}
-	return d
+	val, err := s.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	return val, err
+}
+
+func (s *redisStorage) Set(key string, val []byte, exp time.Duration) error {
+	return s.SetWithContext(context.Background(), key, val, exp)
+}
+
+func (s *redisStorage) SetWithContext(ctx context.Context, key string, val []byte, exp time.Duration) error {
+	if len(key) == 0 || len(val) == 0 {
+		return nil
+	}
+	return s.client.Set(ctx, key, val, exp).Err()
+}
+
+func (s *redisStorage) Delete(key string) error {
+	return s.DeleteWithContext(context.Background(), key)
+}
+
+func (s *redisStorage) DeleteWithContext(ctx context.Context, key string) error {
+	if len(key) == 0 {
+		return nil
+	}
+	return s.client.Del(ctx, key).Err()
+}
+
+func (s *redisStorage) Reset() error {
+	return s.ResetWithContext(context.Background())
+}
+
+func (s *redisStorage) ResetWithContext(ctx context.Context) error {
+	return s.client.FlushDB(ctx).Err()
+}
+
+// Close no-op: client global (connection.RDB) dikelola di tempat lain, jangan ditutup di sini.
+func (s *redisStorage) Close() error {
+	return nil
 }

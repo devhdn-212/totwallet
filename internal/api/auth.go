@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"context"
@@ -11,8 +11,9 @@ import (
 	"github.com/devhdn-212/totwallet/internal/connection"
 	"github.com/devhdn-212/totwallet/internal/util"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
+	jwtMid "github.com/gofiber/contrib/v3/jwt"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 )
@@ -30,10 +31,10 @@ func NewAuth(app *fiber.App,
 	auth := app.Group("/api/auth", limiter.New(limiter.Config{
 		Max:        20,
 		Expiration: 1 * time.Minute,
-		KeyGenerator: func(c *fiber.Ctx) string {
+		KeyGenerator: func(c fiber.Ctx) string {
 			return c.IP()
 		},
-		LimitReached: func(c *fiber.Ctx) error {
+		LimitReached: func(c fiber.Ctx) error {
 			return c.Status(fiber.StatusTooManyRequests).
 				JSON(dto.CreateResponseError(fiber.StatusTooManyRequests, "too many requests"))
 		},
@@ -42,12 +43,12 @@ func NewAuth(app *fiber.App,
 	auth.Post("/page", authmidle, aa.Page)
 	auth.Post("/logout", authmidle, aa.Logout)
 }
-func (a authApi) Login(ctx *fiber.Ctx) error {
+func (a authApi) Login(ctx fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.AuthRequest
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "Login"),
 			zap.String("body", string(ctx.Body())),
@@ -82,12 +83,12 @@ func (a authApi) Login(ctx *fiber.Ctx) error {
 	})
 }
 
-func (a authApi) Page(ctx *fiber.Ctx) error {
+func (a authApi) Page(ctx fiber.Ctx) error {
 	_, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	var req dto.AuthPage
-	if err := ctx.BodyParser(&req); err != nil {
+	if err := ctx.Bind().Body(&req); err != nil {
 		connection.Log.Error("Failed to parse request body",
 			zap.String("endpoint", "Login"),
 			zap.String("body", string(ctx.Body())),
@@ -110,9 +111,9 @@ func (a authApi) Page(ctx *fiber.Ctx) error {
 		"message": "success",
 	})
 }
-func (a authApi) Logout(ctx *fiber.Ctx) error {
-	token, ok := ctx.Locals("user").(*jwt.Token)
-	if !ok || token == nil {
+func (a authApi) Logout(ctx fiber.Ctx) error {
+	token := jwtMid.FromContext(ctx)
+	if token == nil {
 		return ctx.Status(fiber.StatusUnauthorized).
 			JSON(dto.CreateResponseError(fiber.StatusUnauthorized, "invalid token"))
 	}

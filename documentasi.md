@@ -4,6 +4,8 @@ Aplikasi wallet: admin panel (Svelte 5, `web2026/`) buat kelola akun admin, memb
 transaksi (deposit/withdraw), plus API publik yang bisa dipanggil website game eksternal
 buat lapor menang/kalah dan cek saldo member.
 
+> **Arsitektur & business flow lengkap (diagram):** lihat [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ## 1. Skema Database
 
 Lihat [`sql/schema.sql`](sql/schema.sql). Tabel yang dipakai:
@@ -30,7 +32,7 @@ dari kode**, cuma dua kombinasi valid:
 Saldo tidak boleh minus (`tbl_user_saldo_ck`) — kalau DEBIT bikin saldo minus, request ditolak
 dengan `insufficient balance` sebelum sampai ke database.
 
-## 2. Arsitektur Backend (Go / Fiber v2)
+## 2. Arsitektur Backend (Go / Fiber v3)
 
 Layer per fitur, semua terhubung lewat interface di `domain/`:
 
@@ -45,13 +47,32 @@ internal/api/          -> handler Fiber (HTTP)
 File wallet: `domain/wallet.go`, `domain/wallet_transaction.go`, dan pasangannya di
 `dto/`, `internal/repository/`, `internal/service/`, `internal/api/`.
 
-### Kenapa Fiber v2, bukan v3?
+### Catatan migrasi Fiber v2 → v3
 
-Seluruh app (`main.go`, semua `internal/api/*.go`) sudah dibangun di atas Fiber **v2**.
-Fiber v3 sempat ditambahkan (`go get github.com/gofiber/fiber/v3`) sesuai permintaan, tapi
-**belum dipakai untuk wiring apapun** — mencampur `*fiber.App` v2 dan v3 dalam satu proses
-tidak bisa (beda tipe, beda middleware API). v3 ada di `go.mod` siap dipakai kalau nanti
-mau migrasi endpoint baru atau seluruh app.
+App sudah **dimigrasi penuh ke Fiber v3** (`github.com/gofiber/fiber/v3 v3.4.0`,
+butuh Go 1.25+). Perubahan sintaks yang diterapkan:
+
+- **Import**: semua `github.com/gofiber/fiber/v2` → `fiber/v3`; middleware
+  (`etag`, `requestid`, `limiter`) ikut versi `fiber/v3`; JWT contrib pindah ke
+  `github.com/gofiber/contrib/v3/jwt` (package-nya `jwtware`).
+- **`fiber.Ctx` jadi interface** — handler berubah dari `func(c *fiber.Ctx) error`
+  menjadi `func(c fiber.Ctx) error` (sama berlaku untuk `KeyGenerator`,
+  `LimitReached`, `SuccessHandler`, `ErrorHandler`).
+- **`ctx.BodyParser(&req)` dihapus** → diganti `ctx.Bind().Body(&req)` (binding baru
+  Fiber v3, manual mode — error tetap dihandle manual oleh handler).
+- **`app.Static` dihapus** → diganti middleware `static.New(root, cfg)` yang
+  didaftarkan via `app.Use("/", ...)` (config `Compress`, `ByteRange`, `Browse`, dan
+  `Index` diganti `IndexNames []string`).
+- **Token JWT tidak lagi di `c.Locals("user")`** → contrib v3 menyimpan token via
+  `fiber.StoreInContext` dengan key internal; ambil pakai `jwtware.FromContext(c)`
+  yang mengembalikan `*jwt.Token` (golang-jwt/v5). Dipakai di `main.go` (SuccessHandler)
+  dan `internal/api/auth.go` (Logout).
+- **Rate limiter global `/api`**: storage Redis tidak lagi pakai
+  `github.com/gofiber/storage/redis/v3` (package storage gofiber) — diganti adapter
+  kecil `limiter_storage.go` (package main) yang membungkus **`*redis.Client`
+  (`github.com/redis/go-redis/v9`, client `connection.RDB`)** langsung ke interface
+  `fiber.Storage`. Jadinya rate limit & cache berbagi koneksi Redis yang sama.
+- `app.Listen`/`app.Shutdown`/`app.ShutdownWithContext` tetap sama di v3.
 
 ### Konkurensi & Idempotency (mutasi saldo)
 
@@ -353,8 +374,7 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
 ## 8. Riwayat Update
 
 - **Setup awal**: layer `domain/dto/repository/service` buat wallet (`Wallet` + `WalletTransaction`),
-  ngikutin pola CREDIT (Deposit/Win) & DEBIT (Withdraw/Payout) sesuai schema. `fiber/v3` di-`go get`
-  tapi belum dipasang (app tetap Fiber v2 — lihat §2).
+  ngikutin pola CREDIT (Deposit/Win) & DEBIT (Withdraw/Payout) sesuai schema.
 - **Beres-beres modul lama**: hapus 60+ file domain/dto/repository/service/api fitur yang gak
   relevan sama wallet app (company, currency, pasarantoto, groupcompany, dst — sisa dari
   `totmaster_api`), termasuk fitur `adminrule` (permission per-role) karena tabelnya sudah
@@ -532,8 +552,14 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   Logout di sidebar tetap jalan). Signature hook diubah terima `token: string | null`.
 - **Fitur keamanan — rate limiter global `/api` (Redis-backed)**: middleware Fiber `limiter`
   dipasang di `main.go` via `app.Use("/api", ...)` — per IP, counter disimpan di Redis
-  (DB `DB_REDIS_NAME`) lewat `gofiber/storage/redis/v3`, jadi konsisten antar restart /
-  multi instance. Default `300` request/menit, bisa diatur lewat `RATE_LIMIT_MAX` /
-  `RATE_LIMIT_EXP` (lihat §4). Limit dicapai → `429 too many requests`. `/api/auth` tetap
-  punya limiter lebih ketat (`20`/menit per IP, `internal/api/auth.go`). Dependency baru:
-  `github.com/gofiber/storage/redis/v3`.
+  (DB `DB_REDIS_NAME`) lewat koneksi Redis yang sama dengan cache (`connection.RDB`), jadi
+  konsisten antar restart / multi instance. Default `300` request/menit, bisa diatur lewat
+  `RATE_LIMIT_MAX` / `RATE_LIMIT_EXP` (lihat §4). Limit dicapai → `429 too many requests`.
+  `/api/auth` tetap punya limiter lebih ketat (`20`/menit per IP, `internal/api/auth.go`).
+- **Migrasi Fiber v2 → v3**: seluruh app dimigrasi ke `github.com/gofiber/fiber/v3`
+  (detail sintaks di §2). JWT contrib pindah ke `github.com/gofiber/contrib/v3/jwt`
+  (token diambil via `jwtware.FromContext`), `BodyParser` → `ctx.Bind().Body()`,
+  `app.Static` → middleware `static.New` di `app.Use("/", ...)`, handler `*fiber.Ctx`
+  → `fiber.Ctx`. Rate limiter tidak lagi pakai package storage gofiber: `limiter_storage.go`
+  (package main) mengadaptasi `*redis.Client` (go-redis v9 / `connection.RDB`) langsung ke
+  interface `fiber.Storage`. `go build ./...` & `go vet ./...` bersih.
