@@ -112,6 +112,20 @@ func (r walletTransactionRepository) FindAll(ctx context.Context, limit, offset 
 	return res, nil
 }
 
+func (r walletTransactionRepository) CountAll(ctx context.Context) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM ` + config.DB_tbl_trx_transaksi
+	err := r.db.QueryRow(ctx, query).Scan(&count)
+	return count, err
+}
+
+func (r walletTransactionRepository) CountByUsername(ctx context.Context, username string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM ` + config.DB_tbl_trx_transaksi + ` WHERE username = $1`
+	err := r.db.QueryRow(ctx, query, username).Scan(&count)
+	return count, err
+}
+
 // Summary menghitung agregat deposit/withdraw dalam rentang [start, end) plus total
 // keseluruhan transaksi, dipakai buat dashboard admin.
 func (r walletTransactionRepository) Summary(ctx context.Context, start, end time.Time) (domain.TrxSummary, error) {

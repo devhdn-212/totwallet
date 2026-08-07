@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -19,6 +20,11 @@ import (
 
 const (
 	RedisWalletTrxHistory = "wallet:trx:history:"
+	RedisWalletTrxCount   = "wallet:trx:count:"
+	// TTL pendek buat cache riwayat transaksi — sengaja gak di-invalidate manual pas ada
+	// transaksi baru (key-nya kombinasi username+tipe+limit+offset, kebanyakan variasi kalau
+	// mesti dihapus satu-satu). Paling lambat data ketinggalan segini lama sebelum refresh.
+	trxCacheTTL = 1 * time.Minute
 	// nama baris counter di tbl_counter untuk generate notrx, lihat sql/schema.sql
 	NoTrxCounterName = "NOTRX_TRANSAKSI"
 )
@@ -152,7 +158,8 @@ func (s walletTransactionService) process(ctx context.Context, username, tipe, s
 
 	go connection.DeleteRedis(RedisWalletAllKey)
 	go connection.DeleteRedis(RedisWalletDetail + username)
-	go connection.DeleteRedis(RedisWalletTrxHistory + username)
+	// Cache riwayat transaksi (RedisWalletTrxHistory/RedisWalletTrxCount) sengaja TIDAK
+	// di-invalidate di sini — TTL-nya pendek (trxCacheTTL), lihat History()/CountHistory().
 	// Dashboard nampilin total deposit/withdraw hari ini -> cache-nya jadi stale begitu
 	// ada uang masuk (deposit/win) atau keluar (withdraw/bet), jadi harus di-invalidate juga.
 	go connection.DeleteRedis(RedisDashboardKey, RedisDashboardDB)
@@ -161,11 +168,30 @@ func (s walletTransactionService) process(ctx context.Context, username, tipe, s
 }
 
 func (s walletTransactionService) Deposit(ctx context.Context, req dto.DepositRequest, createBy string) (dto.TrxData, error) {
-	return s.process(ctx, req.Username, domain.TrxTipeCredit, domain.TrxSourceDeposit, req.Amount, req.Refno, req.Keterangan, createBy)
+	res, err := s.process(ctx, req.Username, domain.TrxTipeCredit, domain.TrxSourceDeposit, req.Amount, req.Refno, req.Keterangan, createBy)
+	if err == nil {
+		invalidateTrxHistoryCache(req.Username)
+	}
+	return res, err
 }
 
 func (s walletTransactionService) Withdraw(ctx context.Context, req dto.WithdrawRequest, createBy string) (dto.TrxData, error) {
-	return s.process(ctx, req.Username, domain.TrxTipeDebit, domain.TrxSourceWithdraw, req.Amount, req.Refno, req.Keterangan, createBy)
+	res, err := s.process(ctx, req.Username, domain.TrxTipeDebit, domain.TrxSourceWithdraw, req.Amount, req.Refno, req.Keterangan, createBy)
+	if err == nil {
+		invalidateTrxHistoryCache(req.Username)
+	}
+	return res, err
+}
+
+// invalidateTrxHistoryCache dipanggil khusus abis Deposit/Withdraw (aksi admin, jarang/gak
+// high-frequency) — biar admin langsung liat transaksinya di halaman Transaksi tanpa nunggu
+// TTL. WinGame/PayoutGame (dari API publik game, bisa rame) sengaja TIDAK invalidate manual,
+// cukup andalin trxCacheTTL biar gak sering-sering SCAN Redis.
+func invalidateTrxHistoryCache(username string) {
+	go connection.DeleteRedisPattern(RedisWalletTrxHistory + username + ":*")
+	go connection.DeleteRedisPattern(RedisWalletTrxHistory + "all:*")
+	go connection.DeleteRedis(trxCountCacheKey(username))
+	go connection.DeleteRedis(trxCountCacheKey(""))
 }
 
 func (s walletTransactionService) WinGame(ctx context.Context, req dto.WinGameRequest, createBy string) (dto.TrxData, error) {
@@ -189,14 +215,46 @@ func (s walletTransactionService) Show(ctx context.Context, idtrx string) (dto.T
 	return toTrxData(t), nil
 }
 
+// trxPageSize adalah ukuran 1 halaman di halaman Transaksi (paging pakai select di frontend).
+const trxPageSize = 500
+
+// trxHistoryCacheKey gabungin semua parameter yang mempengaruhi hasil query jadi satu key —
+// kombinasi username+tipe+limit+offset beda hasil, jadi harus beda key juga.
+func trxHistoryCacheKey(req dto.TrxHistoryRequest, limit, offset int) string {
+	username := req.Username
+	if username == "" {
+		username = "all"
+	}
+	tipe := req.Tipe
+	if tipe == "" {
+		tipe = "all"
+	}
+	return fmt.Sprintf("%s%s:%s:%d:%d", RedisWalletTrxHistory, username, tipe, limit, offset)
+}
+
+func trxCountCacheKey(username string) string {
+	if username == "" {
+		username = "all"
+	}
+	return RedisWalletTrxCount + username
+}
+
 func (s walletTransactionService) History(ctx context.Context, req dto.TrxHistoryRequest) ([]dto.TrxData, error) {
 	limit := req.Limit
-	if limit <= 0 || limit > 200 {
-		limit = 50
+	if limit <= 0 || limit > trxPageSize {
+		limit = trxPageSize
 	}
 	offset := req.Offset
 	if offset < 0 {
 		offset = 0
+	}
+
+	cacheKey := trxHistoryCacheKey(req, limit, offset)
+	if cached, found, err := connection.GetRedis(cacheKey); err == nil && found {
+		var data []dto.TrxData
+		if err := json.Unmarshal([]byte(cached), &data); err == nil {
+			return data, nil
+		}
 	}
 
 	var trxs []domain.WalletTransaction
@@ -217,5 +275,32 @@ func (s walletTransactionService) History(ctx context.Context, req dto.TrxHistor
 		}
 		result = append(result, toTrxData(t))
 	}
+
+	go connection.SetRedis(cacheKey, result, trxCacheTTL)
 	return result, nil
+}
+
+func (s walletTransactionService) CountHistory(ctx context.Context, username string) (int, error) {
+	cacheKey := trxCountCacheKey(username)
+	if cached, found, err := connection.GetRedis(cacheKey); err == nil && found {
+		var count int
+		if err := json.Unmarshal([]byte(cached), &count); err == nil {
+			return count, nil
+		}
+	}
+
+	count, err := s.countHistoryFromDB(ctx, username)
+	if err != nil {
+		return 0, err
+	}
+
+	go connection.SetRedis(cacheKey, count, trxCacheTTL)
+	return count, nil
+}
+
+func (s walletTransactionService) countHistoryFromDB(ctx context.Context, username string) (int, error) {
+	if username == "" {
+		return s.repo.CountAll(ctx)
+	}
+	return s.repo.CountByUsername(ctx, username)
 }

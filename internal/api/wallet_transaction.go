@@ -38,13 +38,23 @@ func (wa *walletTransactionApi) Index(ctx *fiber.Ctx) error {
 
 	res, err := wa.trxService.History(c, req)
 	if err != nil {
+		go connection.NotifyServerError("Transaksi.Index", err, "username="+req.Username)
 		return ctx.Status(http.StatusInternalServerError).
 			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
 	}
+
+	total, err := wa.trxService.CountHistory(c, req.Username)
+	if err != nil {
+		go connection.NotifyServerError("Transaksi.Index.Count", err, "username="+req.Username)
+		return ctx.Status(http.StatusInternalServerError).
+			JSON(dto.CreateResponseError(http.StatusInternalServerError, "internal server error"))
+	}
+
 	return ctx.JSON(fiber.Map{
 		"status":  fiber.StatusOK,
 		"message": "success",
 		"record":  res,
+		"total":   total,
 	})
 }
 

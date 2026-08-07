@@ -78,7 +78,7 @@ func (s walletService) Index(ctx context.Context) ([]dto.WalletData, error) {
 		result = append(result, toWalletData(w))
 	}
 
-	go connection.SetRedis(RedisWalletAllKey, result, 5*time.Minute)
+	go connection.SetRedis(RedisWalletAllKey, result, 1*time.Minute)
 	connection.Log.Info("Returning data Database - Wallet")
 	return result, nil
 }
@@ -104,7 +104,7 @@ func (s walletService) Show(ctx context.Context, username string) (dto.WalletDat
 	}
 
 	result := toWalletData(w)
-	_ = connection.SetRedis(redisDetail, result, 5*time.Minute)
+	_ = connection.SetRedis(redisDetail, result, 1*time.Minute)
 	connection.Log.Info("Returning data Database - Wallet/" + username)
 	return result, nil
 }

@@ -1,96 +1,36 @@
 <script lang="ts">
-    import { getInputValue, sanitizeidlower, sanitizestringnormal, sanitizefloat, decimal } from "../lib/helpers";
-    import * as z from "zod";
-    import { toast } from "svelte-sonner"
+    import { decimal } from "../lib/helpers";
+    import { TRX_PAGE_SIZE } from "../lib/useTransaksi";
     import { Toaster } from "$lib/components/ui/sonner"
     import { Badge } from "$lib/components/ui/badge"
     import { Button } from "$lib/components/ui/button"
-    import { Input } from "$lib/components/ui/input"
-    import { Label } from "$lib/components/ui/label"
-    import * as Dialog from "$lib/components/ui/dialog"
+    import * as Select from "$lib/components/ui/select"
+    import DepositWithdrawModal from "../components/DepositWithdrawModal.svelte"
     import { RefreshCw, ArrowDownCircle, ArrowUpCircle } from "lucide-svelte"
 
     let {
         RefreshPage,
         record = [],
+        total = 0,
+        currentPage = 1,
+        GoToPage,
         token = "",
         path_api = "",
         title_page = "",
         isLoading = false } = $props();
 
-    let loadingSave = $state(false)
-    let modalOpen = $state(false)
-    type sMode = 'deposit' | 'withdraw';
-    type sForm = {
-        mode: sMode;
-        username: string;
-        amount: string;
-        refno: string;
-        keterangan: string;
-    }
-    const initialForm: sForm = { mode: 'deposit', username: '', amount: '', refno: '', keterangan: '' };
-    let form = $state<sForm>({ ...initialForm });
+    let modalOpen = $state(false);
+    let modalMode = $state<'deposit' | 'withdraw'>('deposit');
 
-    function openModal(mode: sMode) {
-        form = { ...initialForm, mode };
+    function openModal(mode: 'deposit' | 'withdraw') {
+        modalMode = mode;
         modalOpen = true;
     }
-    function handleSanitizeInput(e: Event, field: keyof typeof form, type: string): void {
-        const target = getInputValue(e);
-        let value = ""
-        switch (type){
-            case "idlower":
-                value = sanitizeidlower(target);
-                break;
-            case "string_normal":
-                value = sanitizestringnormal(target);
-                break;
-            case "float":
-                value = sanitizefloat(target);
-                break;
-        }
-        form[field] = value;
-    }
-    async function HandleSave() {
-        const trxSchema = z.object({
-            username: z.string().min(4, "Username minimal 4 karakter").trim(),
-            amount: z.string().refine((v) => Number(v) > 0, "Nominal harus lebih dari 0"),
-        });
-        const parsedData = trxSchema.safeParse({ username: form.username, amount: form.amount });
-        if (!parsedData.success) {
-            toast.error('Error', {description: parsedData.error.issues[0].message});
-            return;
-        }
-        loadingSave = true;
-        try {
-            const endpoint = form.mode === 'deposit' ? 'api/transaksi/deposit' : 'api/transaksi/withdraw';
-            const res = await fetch(path_api + endpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: "Bearer " + token,
-                },
-                body: JSON.stringify({
-                    username: form.username,
-                    amount: form.amount,
-                    refno: form.refno,
-                    keterangan: form.keterangan,
-                }),
-            });
-            const json = await res.json();
-            if (json.status == 200) {
-                toast.success('Berhasil', {description: `${form.mode === 'deposit' ? 'Deposit' : 'Withdraw'} berhasil diproses`});
-                RefreshPage();
-                modalOpen = false;
-            } else {
-                toast.error('Error', {description: json.message});
-            }
-        } catch (e) {
-            toast.error('Koneksi Gagal', { description: 'Tidak dapat terhubung ke server' })
-        } finally {
-            loadingSave = false;
-        }
-    }
+
+    const totalPages = $derived(Math.max(1, Math.ceil(total / TRX_PAGE_SIZE)));
+    const pageOptions = $derived(Array.from({ length: totalPages }, (_, i) => i + 1));
+    const rangeStart = $derived(total === 0 ? 0 : (currentPage - 1) * TRX_PAGE_SIZE + 1);
+    const rangeEnd = $derived(Math.min(currentPage * TRX_PAGE_SIZE, total));
 </script>
 
 <div class="flex flex-col gap-4">
@@ -153,9 +93,9 @@
                           </td>
                       </tr>
                   {:else}
-                      {#each record as rec, i}
+                      {#each record as rec}
                       <tr class="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                          <td class="px-4 py-3 text-muted-foreground text-center">{i + 1}</td>
+                          <td class="px-4 py-3 text-muted-foreground text-center">{rec.home_no}</td>
                           <td class="px-4 py-3 whitespace-nowrap">{rec.home_notrx}</td>
                           <td class="px-4 py-3">{rec.home_username}</td>
                           <td class="px-4 py-3 text-center">
@@ -174,63 +114,33 @@
         </div>
       </div>
     </div>
+
+    <!-- Paging -->
+    <div class="flex items-center justify-between">
+        <p class="text-xs text-muted-foreground">
+            Menampilkan {rangeStart}-{rangeEnd} dari {total} transaksi
+        </p>
+        {#if totalPages > 1}
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">Halaman</span>
+            <Select.Root type="single" value={String(currentPage)} onValueChange={(v) => v && GoToPage(Number(v))}>
+                <Select.Trigger class="w-24">
+                    {currentPage} / {totalPages}
+                </Select.Trigger>
+                <Select.Content>
+                    {#each pageOptions as p}
+                        <Select.Item value={String(p)}>Halaman {p}</Select.Item>
+                    {/each}
+                </Select.Content>
+            </Select.Root>
+        </div>
+        {/if}
+    </div>
 </div>
 
-<!-- Modal Deposit/Withdraw -->
-<Dialog.Root bind:open={modalOpen}>
-  <Dialog.Content class="max-w-md">
-    <Dialog.Header>
-      <Dialog.Title>{form.mode === 'deposit' ? 'Deposit' : 'Withdraw'} Saldo Member</Dialog.Title>
-    </Dialog.Header>
-
-    <div class="flex flex-col gap-4 py-2">
-      <div class="flex flex-col gap-2">
-        <Label for="trx-username">Username Member <span class="text-destructive">*</span></Label>
-        <Input
-          id="trx-username"
-          maxlength="30"
-          placeholder="Contoh: budi"
-          oninput={(e) => handleSanitizeInput(e, "username","idlower")}
-          bind:value={form.username}/>
-      </div>
-      <div class="flex flex-col gap-2">
-        <Label for="trx-amount">Nominal <span class="text-destructive">*</span></Label>
-        <Input
-          id="trx-amount"
-          placeholder="Contoh: 100000"
-          oninput={(e) => handleSanitizeInput(e, "amount","float")}
-          bind:value={form.amount}/>
-      </div>
-      <div class="flex flex-col gap-2">
-        <Label for="trx-refno">No. Referensi</Label>
-        <Input
-          id="trx-refno"
-          maxlength="50"
-          placeholder="Opsional, mis. no. rekening/bukti transfer"
-          bind:value={form.refno}/>
-      </div>
-      <div class="flex flex-col gap-2">
-        <Label for="trx-keterangan">Keterangan</Label>
-        <Input
-          id="trx-keterangan"
-          maxlength="250"
-          placeholder="Opsional"
-          oninput={(e) => handleSanitizeInput(e, "keterangan","string_normal")}
-          bind:value={form.keterangan}/>
-      </div>
-    </div>
-    <Dialog.Footer>
-      <Button class="cursor-pointer" variant="outline" onclick={() => modalOpen = false}>Batal</Button>
-      {#if loadingSave}
-            <Button class="cursor-pointer" disabled>
-                <RefreshCw size={14} class="animate-spin" />
-                    Memproses...
-            </Button>
-        {:else}
-            <Button class="cursor-pointer" onclick={HandleSave} disabled={!form.username || !form.amount}>
-                {form.mode === 'deposit' ? 'Deposit' : 'Withdraw'}
-            </Button>
-        {/if}
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+<DepositWithdrawModal
+    bind:open={modalOpen}
+    mode={modalMode}
+    token={token}
+    path_api={path_api}
+    onSuccess={RefreshPage} />

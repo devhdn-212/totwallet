@@ -119,7 +119,7 @@ func GetRedis(key string, db ...int) (string, bool, error) {
 	if err == redis.Nil {
 		return "", false, nil
 	} else if err != nil {
-		Log.Fatal("Redis Get failed : ", zap.Error(err))
+		Log.Error("Redis Get failed : ", zap.Error(err))
 		return "", false, err
 	}
 	return result, true, nil
@@ -140,10 +140,47 @@ func DeleteRedis(key string, db ...int) (int64, error) {
 
 	deleted, err := client.Del(ctx, key).Result()
 	if err != nil {
-		Log.Fatal("Redis Delete failed : ", zap.Error(err))
+		Log.Error("Redis Delete failed : ", zap.Error(err))
 		return 0, err
 	}
 	return deleted, nil
+}
+
+// DeleteRedisPattern hapus semua key yang match pattern (mis. "wallet:trx:history:budi:*")
+// pakai SCAN (bukan KEYS) biar gak blocking Redis kalau key-nya banyak. Dipakai buat invalidate
+// cache riwayat transaksi member tertentu pas ada deposit/withdraw baru.
+func DeleteRedisPattern(pattern string, db ...int) error {
+	targetDB := 0
+	if len(db) > 0 {
+		targetDB = db[0]
+	}
+
+	client := getClient(targetDB)
+	defer func() {
+		if targetDB != 0 {
+			client.Close()
+		}
+	}()
+
+	var cursor uint64
+	for {
+		keys, nextCursor, err := client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			Log.Error("Redis Scan failed : ", zap.Error(err))
+			return err
+		}
+		if len(keys) > 0 {
+			if err := client.Del(ctx, keys...).Err(); err != nil {
+				Log.Error("Redis Delete (pattern) failed : ", zap.Error(err))
+				return err
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
 }
 
 func BlacklistJWT(jti string, ttl time.Duration) error {

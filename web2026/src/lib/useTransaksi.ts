@@ -19,6 +19,7 @@ export interface TrxRecord {
 export interface TrxResponse {
     status: number;
     record: TrxRecord[];
+    total?: number;
     message?: string;
 }
 
@@ -27,29 +28,35 @@ const TIPE_CLASS: Record<string, string> = {
     DEBIT: 'bg-orange-100 text-orange-700',
 };
 
+// 1 halaman = 500 baris, sesuai batas maksimal limit di backend (internal/service/wallet_transaction.go).
+export const TRX_PAGE_SIZE = 500;
+
 export function useTransaksi(path_api: string, token: string) {
     const listHome = writable<any[]>([]);
+    const total = writable(0);
     const isLoading = writable(false);
 
-    async function load() {
+    async function load(page: number = 1) {
         isLoading.set(true);
         try {
+            const offset = (page - 1) * TRX_PAGE_SIZE;
             const res = await fetch(path_api + 'api/transaksi', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: 'Bearer ' + token,
                 },
-                body: JSON.stringify({ limit: 100 }),
+                body: JSON.stringify({ limit: TRX_PAGE_SIZE, offset }),
             });
 
             const json: TrxResponse = await res.json();
 
             if (json.status === 200) {
                 const record = json.record ?? [];
+                total.set(json.total ?? record.length);
                 listHome.set(
                     record.map((item, index) => ({
-                        home_no: index + 1,
+                        home_no: offset + index + 1,
                         home_notrx: item.notrx,
                         home_username: item.username,
                         home_tipe: item.tipe,
@@ -71,5 +78,5 @@ export function useTransaksi(path_api: string, token: string) {
         }
     }
 
-    return { listHome, isLoading, load };
+    return { listHome, total, isLoading, load };
 }

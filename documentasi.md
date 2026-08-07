@@ -81,9 +81,18 @@ dalam satu DB transaction:
 | POST | `/api/admin/save` | Create/update admin (`type: "New"` atau `"Edit"`) |
 | POST | `/api/member` | List member/wallet |
 | POST | `/api/member/save` | Create/update member (`type: "New"` atau `"Edit"`) — saat create, `token` member digenerate otomatis (UUID) |
-| POST | `/api/transaksi` | Riwayat transaksi (`username` kosong = semua member) |
+| POST | `/api/transaksi` | Riwayat transaksi, paginated (`username` kosong = semua member) |
 | POST | `/api/transaksi/deposit` | Deposit saldo member (CREDIT/DEPOSIT) |
 | POST | `/api/transaksi/withdraw` | Withdraw saldo member (DEBIT/WITHDRAW) |
+
+**Paging `/api/transaksi`** — body `{ username?, tipe?, limit?, offset? }`. `limit` default &
+maksimal **500** (dipaksa ke 500 kalau kosong/negatif/lebih dari 500 — lihat `trxPageSize` di
+`internal/service/wallet_transaction.go`). Response ikut nambahin `total` (jumlah keseluruhan
+baris yang match filter, dipakai frontend buat hitung total halaman):
+```json
+{ "status": 200, "message": "success", "record": [ /* max 500 baris */ ], "total": 1234 }
+```
+Halaman berikutnya: kirim ulang dengan `offset = (halaman-1) * 500`.
 
 > **Catatan:** fitur role/permission per-halaman (`tbl_adminrole`) dihapus karena tabelnya
 > sudah tidak ada di schema baru — semua admin yang berhasil login sekarang **full access**
@@ -263,6 +272,16 @@ Lihat [`.env.example`](.env.example). Tambahan buat fitur ini:
 Setiap fitur punya 2 file: `<Fitur>.svelte` (ambil data lewat hook `src/lib/use<Fitur>.ts`,
 cek token) dan `Home.svelte` (tampilan tabel + modal form, submit langsung ke API).
 
+**Komponen bersama:** `src/components/DepositWithdrawModal.svelte` — modal deposit/withdraw
+yang dipakai di 2 tempat:
+- Halaman **Transaksi**: tombol Deposit/Withdraw di header, username diisi manual.
+- Halaman **Member**: 2 ikon (↓ biru = deposit, ↑ oranye = withdraw) di kolom SALDO tiap baris
+  — modal kebuka dengan username baris itu udah otomatis keisi & terkunci (`usernameLocked`),
+  jadi gak perlu bolak-balik ke halaman Transaksi buat top-up/potong saldo member tertentu.
+
+Kedua tempat manggil endpoint yang sama (`/api/transaksi/deposit` / `/withdraw`, lihat §3.1)
+dan refresh listnya masing-masing lewat prop `onSuccess`.
+
 Build: `cd web2026 && npm run build` → hasil di `web2026/dist`, di-serve langsung oleh Go
 lewat `app.Static("/", "./web2026/dist", ...)` di `main.go`.
 
@@ -388,3 +407,39 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   cuma numpang di tombol Refresh). Sekarang `isLoading` beneran dipakai: nampilin baris
   "Memuat data..." + ikon spinner di tabel selama fetch, dan tombol Refresh ke-disable +
   ikonnya muter selama itu juga.
+- **Frontend — shortcut deposit/withdraw langsung dari halaman Member**: modal deposit/withdraw
+  yang tadinya cuma ada di halaman Transaksi (`transaksi/Home.svelte`) di-extract jadi komponen
+  bersama `src/components/DepositWithdrawModal.svelte`. Ditambah 2 ikon (deposit/withdraw) di
+  kolom SALDO halaman Member — klik langsung buka modal dengan username baris itu udah keisi &
+  terkunci, jadi admin gak perlu bolak-balik ke halaman Transaksi buat top-up/potong saldo
+  member tertentu. Lihat §5.
+- **Fitur baru — paging halaman Transaksi (1 halaman = 500 baris, pakai dropdown select)**:
+  sebelumnya `/api/transaksi` limit-nya kepatok maks 200 dan gak pernah balikin total data, jadi
+  gak mungkin dibikin paging beneran. Ditambah `CountAll`/`CountByUsername`
+  (`internal/repository/wallet_transaction.go`) + `CountHistory` di service, limit maks
+  dinaikin ke `trxPageSize = 500`, dan response `/api/transaksi` sekarang ikut nambahin field
+  `total` (lihat §3.1). Frontend: `useTransaksi.ts` nerima parameter `page`, `transaksi/Home.svelte`
+  nampilin dropdown "Halaman X / Y" di bawah tabel (pakai komponen `Select` yang sama kayak di
+  form Status) buat lompat ke halaman manapun tanpa reload.
+- **Fitur baru — cache Redis buat riwayat transaksi**: `/api/transaksi` sebelumnya selalu query
+  langsung ke Postgres (gak ke-cache). Sekarang di-cache pakai TTL **1 menit** (`trxCacheTTL`,
+  `internal/service/wallet_transaction.go`), key-nya kombinasi `username:tipe:limit:offset`
+  (`trxHistoryCacheKey`) buat data + `username` doang buat total count (`trxCountCacheKey`) —
+  sengaja TTL-only (bukan invalidate manual tiap ada transaksi), soalnya kombinasi
+  limit/offset/tipe per user bisa banyak jadi ribet kalau mesti dihapus satu-satu.
+  **Kecuali** abis **Deposit/Withdraw** (aksi admin) — itu di-invalidate manual seketika
+  (`invalidateTrxHistoryCache`, pakai `connection.DeleteRedisPattern` yang SCAN key
+  `wallet:trx:history:<username>:*` dan `wallet:trx:history:all:*`), biar admin langsung liat
+  hasilnya tanpa nunggu TTL. WinGame/PayoutGame (dari API publik, bisa high-frequency) sengaja
+  TIDAK di-invalidate manual, cukup andalin TTL 1 menit biar gak sering-sering SCAN Redis.
+- **TTL cache Admin & Member ikut diseragamin ke 1 menit** (`RedisAdminAllKey` tadinya 60 menit,
+  `RedisWalletAllKey`/`RedisWalletDetail` tadinya 5 menit) — biar konsisten & data gak ketinggalan
+  kelamaan di panel admin.
+  > **Sengaja dikecualikan:** `ShowByToken` (dipanggil `/api/public/balance`) — **TIDAK PERNAH**
+  > di-cache, selalu langsung query DB. Balance itu data yang paling kritis buat website game
+  > eksternal (dipakai buat keputusan finansial real-time), jadi risiko kebaca stale walau cuma
+  > semenit gak sepadan sama gain performa-nya. Jangan tambahin caching di sini tanpa
+  > pertimbangan matang.
+- **Bug fix — `Log.Fatal` tersisa di `GetRedis`/`DeleteRedis`**: (`internal/connection/redis.go`)
+  masih ada 2 titik yang bisa bikin app crash total (`os.Exit`) kalau Redis error sesaat —
+  sisa dari fix serupa yang udah dibenerin di `SetRedis` sebelumnya. Diganti ke `Log.Error`.

@@ -88,7 +88,7 @@ func (a adminService) All(ctx context.Context) ([]dto.AdminData, error) {
 		})
 	}
 
-	go connection.SetRedis(RedisAdminAllKey, adminData, 60*time.Minute)
+	go connection.SetRedis(RedisAdminAllKey, adminData, 1*time.Minute)
 	connection.Log.Info("Returning data Database - Admin")
 	return adminData, nil
 }

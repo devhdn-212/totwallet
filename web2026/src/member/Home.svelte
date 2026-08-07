@@ -12,7 +12,8 @@
     import * as Alert from "$lib/components/ui/alert"
     import * as Dialog from "$lib/components/ui/dialog"
     import * as Select from "$lib/components/ui/select"
-    import { RefreshCw, Plus, Search, Pencil, Eye, EyeOff, Copy } from "lucide-svelte"
+    import { RefreshCw, Plus, Search, Pencil, Eye, EyeOff, Copy, ArrowDownCircle, ArrowUpCircle } from "lucide-svelte"
+    import DepositWithdrawModal from "../components/DepositWithdrawModal.svelte"
 
 
     let {
@@ -30,6 +31,14 @@
     let searchHome: string = $state('');
     let filterHome: any[] = $state([]);
     let modalOpen = $state(false)
+    let trxModalOpen = $state(false)
+    let trxModalMode = $state<'deposit' | 'withdraw'>('deposit')
+    let trxModalUsername = $state('')
+    function openTrxModal(mode: 'deposit' | 'withdraw', username: string) {
+        trxModalMode = mode;
+        trxModalUsername = username;
+        trxModalOpen = true;
+    }
     type Status = 'Y' | 'N';
     type sForm = {
         sData: string;
@@ -273,7 +282,21 @@
                           <td class="px-4 py-3 text-muted-foreground text-center">{i + 1}</td>
                           <td class="px-4 py-3 ">{rec.home_username}</td>
                           <td class="px-4 py-3">{rec.home_nama}</td>
-                          <td class="px-4 py-3 text-right font-medium">{decimal(rec.home_saldo)}</td>
+                          <td class="px-4 py-3 text-right font-medium">
+                              <div class="flex items-center justify-end gap-2">
+                                  {decimal(rec.home_saldo)}
+                                  <Button variant="ghost" size="icon" class="size-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        title="Deposit"
+                                        onclick={() => openTrxModal('deposit', rec.home_username)}>
+                                      <ArrowDownCircle size={16} />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" class="size-7 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                        title="Withdraw"
+                                        onclick={() => openTrxModal('withdraw', rec.home_username)}>
+                                      <ArrowUpCircle size={16} />
+                                  </Button>
+                              </div>
+                          </td>
                           <td class="px-4 py-3 whitespace-nowrap text-center">{rec.home_create}</td>
                       </tr>
                       {/each}
@@ -386,3 +409,12 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
+
+<DepositWithdrawModal
+    bind:open={trxModalOpen}
+    mode={trxModalMode}
+    username={trxModalUsername}
+    usernameLocked={true}
+    token={token}
+    path_api={path_api}
+    onSuccess={RefreshPage} />

@@ -57,6 +57,10 @@ type WalletTransactionRepository interface {
 	FindByUsernameRefnoAndSource(ctx context.Context, username, refno, source string) (WalletTransaction, error)
 	// FindAll dipakai halaman admin buat menampilkan transaksi semua member.
 	FindAll(ctx context.Context, limit, offset int) ([]WalletTransaction, error)
+	// CountAll / CountByUsername dipakai buat hitung total halaman di halaman Transaksi
+	// (paging pakai select, 1 halaman = 500 baris — lihat internal/service/wallet_transaction.go).
+	CountAll(ctx context.Context) (int, error)
+	CountByUsername(ctx context.Context, username string) (int, error)
 	Save(ctx context.Context, t *WalletTransaction) error
 	// Summary dipakai dashboard admin: agregat total deposit & withdraw dalam rentang
 	// [start, end) plus total keseluruhan transaksi.
@@ -80,4 +84,6 @@ type WalletTransactionService interface {
 
 	Show(ctx context.Context, idtrx string) (dto.TrxData, error)
 	History(ctx context.Context, req dto.TrxHistoryRequest) ([]dto.TrxData, error)
+	// CountHistory dipakai buat hitung total halaman (username kosong = hitung semua member).
+	CountHistory(ctx context.Context, username string) (int, error)
 }
