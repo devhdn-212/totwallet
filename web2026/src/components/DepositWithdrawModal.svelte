@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getInputValue, sanitizeidlower, sanitizestringnormal, sanitizefloat } from "../lib/helpers";
+    import { apiFetch } from "../lib/api";
     import * as z from "zod";
     import { toast } from "svelte-sonner"
     import { Button } from "$lib/components/ui/button"
@@ -69,12 +70,8 @@
         loadingSave = true;
         try {
             const endpoint = mode === 'deposit' ? 'api/transaksi/deposit' : 'api/transaksi/withdraw';
-            const res = await fetch(path_api + endpoint, {
+            const res = await apiFetch(path_api + endpoint, token, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: "Bearer " + token,
-                },
                 body: JSON.stringify({
                     username: form.username,
                     amount: form.amount,

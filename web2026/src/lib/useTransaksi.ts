@@ -1,5 +1,6 @@
 // src/lib/useTransaksi.ts
 import { writable } from 'svelte/store';
+import { apiFetch } from './api';
 
 export interface TrxRecord {
     idtrx: string;
@@ -31,7 +32,7 @@ const TIPE_CLASS: Record<string, string> = {
 // 1 halaman = 500 baris, sesuai batas maksimal limit di backend (internal/service/wallet_transaction.go).
 export const TRX_PAGE_SIZE = 500;
 
-export function useTransaksi(path_api: string, token: string) {
+export function useTransaksi(path_api: string, token: string | null) {
     const listHome = writable<any[]>([]);
     const total = writable(0);
     const isLoading = writable(false);
@@ -40,12 +41,8 @@ export function useTransaksi(path_api: string, token: string) {
         isLoading.set(true);
         try {
             const offset = (page - 1) * TRX_PAGE_SIZE;
-            const res = await fetch(path_api + 'api/transaksi', {
+            const res = await apiFetch(path_api + 'api/transaksi', token, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + token,
-                },
                 body: JSON.stringify({ limit: TRX_PAGE_SIZE, offset }),
             });
 

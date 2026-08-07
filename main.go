@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -18,7 +19,9 @@ import (
 	jwtMid "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/etag"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	storageRedis "github.com/gofiber/storage/redis/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -78,6 +81,28 @@ func main() {
 		logger.Info("http_request", fields...)
 		return err
 	})
+
+	// 5. Rate limit global endpoint /api — per IP, counter di Redis (DB yang sama dengan
+	// cache) supaya limit konsisten antar restart/multi instance. `/api/auth` punya limiter
+	// sendiri yang lebih ketat (lihat internal/api/auth.go).
+	app.Use("/api", limiter.New(limiter.Config{
+		Max:        cnf.Limiter.Max,
+		Expiration: time.Duration(cnf.Limiter.Exp) * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).
+				JSON(dto.CreateResponseError(fiber.StatusTooManyRequests, "too many requests"))
+		},
+		Storage: storageRedis.New(storageRedis.Config{
+			Host:     cnf.Redis.Host,
+			Port:     redisPort(cnf.Redis.Port),
+			Password: cnf.Redis.Pass,
+			Database: redisDB(cnf.Redis.Name),
+		}),
+	}))
+
 	app.Static("/", "./web2026/dist", fiber.Static{
 		Compress:  true,
 		ByteRange: true,
@@ -230,4 +255,20 @@ func NewGCPLogger() *zap.Logger {
 	)
 
 	return zap.New(core, zap.AddCaller())
+}
+
+func redisPort(port string) int {
+	p, err := strconv.Atoi(port)
+	if err != nil || p <= 0 {
+		return 6379
+	}
+	return p
+}
+
+func redisDB(db string) int {
+	d, err := strconv.Atoi(db)
+	if err != nil || d < 0 {
+		return 0
+	}
+	return d
 }

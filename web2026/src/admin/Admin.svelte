@@ -2,7 +2,7 @@
     import Home from "./Home.svelte";
     import { useAdmin } from "../lib/useAdmin";
     import { getAuth } from "../lib/auth.svelte";
-    let {HandleLogout,path_api} = $props();
+    let {path_api} = $props();
 
     const auth = getAuth();
     const admin = useAdmin(path_api, auth.token);
@@ -12,15 +12,10 @@
     const isLoading = $derived(admin.isLoading);
 
     admin.load();
-    $effect(() => {
-        if (!auth.token) {
-            HandleLogout();
-        }
-    });
 </script>
 <Home RefreshPage={admin.load}
       record={$listHome}
-      token={auth.token}
+      token={auth.token ?? ""}
       path_api={path_api}
       title_page="Admin"
       totalrecord={$totalrecord}

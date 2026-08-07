@@ -65,13 +65,24 @@ type WalletTransactionRepository interface {
 	// Summary dipakai dashboard admin: agregat total deposit & withdraw dalam rentang
 	// [start, end) plus total keseluruhan transaksi.
 	Summary(ctx context.Context, start, end time.Time) (TrxSummary, error)
+	// MonthlySummary dipakai dashboard admin: agregat total debit & credit per bulan
+	// dalam rentang [start, end) — buat chart per bulan (1 tahun terakhir).
+	MonthlySummary(ctx context.Context, start, end time.Time) ([]TrxMonthly, error)
 }
 
 // TrxSummary adalah hasil agregat tbl_trx_transaksi buat kebutuhan dashboard admin.
 type TrxSummary struct {
 	DepositToday  decimal.Decimal
 	WithdrawToday decimal.Decimal
+	DebitBetToday decimal.Decimal
 	TotalTrx      int
+}
+
+// TrxMonthly adalah agregat debit & credit per bulan (format "YYYY-MM") buat chart dashboard.
+type TrxMonthly struct {
+	Month  string          `db:"bulan"`
+	Debit  decimal.Decimal `db:"debit"`
+	Credit decimal.Decimal `db:"credit"`
 }
 
 type WalletTransactionService interface {

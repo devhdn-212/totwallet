@@ -1,6 +1,7 @@
 // src/lib/useMember.ts
 import { writable } from 'svelte/store';
 import { STATUS_CLASS } from './status';
+import { apiFetch } from './api';
 
 export type MemberStatus = 'Y' | 'N';
 
@@ -20,7 +21,7 @@ export interface MemberResponse {
     message?: string;
 }
 
-export function useMember(path_api: string, token: string) {
+export function useMember(path_api: string, token: string | null) {
     const listHome = writable<any[]>([]);
     const totalrecord = writable(0);
     const isLoading = writable(false);
@@ -28,12 +29,8 @@ export function useMember(path_api: string, token: string) {
     async function load() {
         isLoading.set(true);
         try {
-            const res = await fetch(path_api + 'api/member', {
+            const res = await apiFetch(path_api + 'api/member', token, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + token,
-                },
                 body: JSON.stringify({}),
             });
 

@@ -132,15 +132,41 @@ func (r walletTransactionRepository) Summary(ctx context.Context, start, end tim
 	query := `SELECT
 	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'CREDIT' AND source = 'DEPOSIT' AND create_at >= $1 AND create_at < $2), 0),
 	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'DEBIT' AND source = 'WITHDRAW' AND create_at >= $1 AND create_at < $2), 0),
+	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'DEBIT' AND source = 'BET' AND create_at >= $1 AND create_at < $2), 0),
 	            COUNT(*)
 	          FROM ` + config.DB_tbl_trx_transaksi
 
 	var s domain.TrxSummary
-	err := r.db.QueryRow(ctx, query, start, end).Scan(&s.DepositToday, &s.WithdrawToday, &s.TotalTrx)
+	err := r.db.QueryRow(ctx, query, start, end).Scan(&s.DepositToday, &s.WithdrawToday, &s.DebitBetToday, &s.TotalTrx)
 	if err != nil {
 		return domain.TrxSummary{}, err
 	}
 	return s, nil
+}
+
+// MonthlySummary mengembalikan agregat debit & credit per bulan dalam rentang [start, end),
+// dipakai buat chart per bulan (1 tahun terakhir) di dashboard admin.
+func (r walletTransactionRepository) MonthlySummary(ctx context.Context, start, end time.Time) ([]domain.TrxMonthly, error) {
+	query := `SELECT
+	            to_char(create_at, 'YYYY-MM') AS bulan,
+	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'DEBIT'), 0) AS debit,
+	            COALESCE(SUM(amount) FILTER (WHERE tipe = 'CREDIT'), 0) AS credit
+	          FROM ` + config.DB_tbl_trx_transaksi + `
+	          WHERE create_at >= $1 AND create_at < $2
+	          GROUP BY to_char(create_at, 'YYYY-MM')
+	          ORDER BY bulan`
+
+	rows, err := r.db.Query(ctx, query, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res, err := pgx.CollectRows(rows, pgx.RowToStructByName[domain.TrxMonthly])
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (r walletTransactionRepository) Save(ctx context.Context, t *domain.WalletTransaction) error {

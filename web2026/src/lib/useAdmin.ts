@@ -1,6 +1,7 @@
 // src/lib/useAdmin.ts
 import { writable } from 'svelte/store';
 import { STATUS_CLASS } from './status';
+import { apiFetch } from './api';
 
 export type AdminStatus = 'Y' | 'N';
 
@@ -22,7 +23,7 @@ export interface AdminResponse {
     message?: string;
 }
 
-export function useAdmin(path_api: string, token: string) {
+export function useAdmin(path_api: string, token: string | null) {
     const listHome = writable<any[]>([]);
     const totalrecord = writable(0);
     const isLoading = writable(false);
@@ -30,12 +31,8 @@ export function useAdmin(path_api: string, token: string) {
     async function load() {
         isLoading.set(true);
         try {
-            const res = await fetch(path_api + 'api/admin', {
+            const res = await apiFetch(path_api + 'api/admin', token, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + token,
-                },
                 body: JSON.stringify({}),
             });
 

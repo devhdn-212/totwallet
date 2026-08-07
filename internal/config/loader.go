@@ -51,5 +51,17 @@ func Get() *Config {
 			BotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 			ChatID:   os.Getenv("TELEGRAM_CHAT_ID"),
 		},
+		Limiter: Limiter{
+			Max: envInt("RATE_LIMIT_MAX", 300),
+			Exp: envInt("RATE_LIMIT_EXP", 1),
+		},
 	}
+}
+
+// envInt baca env var numerik; kalau kosong/invalid → fallback ke default.
+func envInt(key string, def int) int {
+	if v, err := strconv.Atoi(os.Getenv(key)); err == nil && v > 0 {
+		return v
+	}
+	return def
 }

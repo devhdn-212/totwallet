@@ -7,6 +7,7 @@ type Config struct {
 	Redis    Redis
 	Public   Public
 	Telegram Telegram
+	Limiter  Limiter
 }
 
 type Server struct {
@@ -47,4 +48,11 @@ type Public struct {
 type Telegram struct {
 	BotToken string
 	ChatID   string
+}
+
+// Limiter mengatur rate limit global endpoint /api (per IP, disimpan di Redis supaya
+// konsisten antar restart/multi instance). Stricter limit di /api/auth tetap di luar ini.
+type Limiter struct {
+	Max  int // maks request per window
+	Exp  int // window dalam menit
 }

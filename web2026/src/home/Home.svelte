@@ -86,13 +86,13 @@
         <!-- Content Area -->
         <main class="flex-1 overflow-y-auto p-6">
             {#if activePage === "dashboard"}
-                <Dashboard HandleLogout={HandleLogout} {path_api} />
+                <Dashboard {path_api} />
             {:else if activePage === "transaksi"}
-                <Transaksi HandleLogout={HandleLogout} {path_api} />
+                <Transaksi {path_api} />
             {:else if activePage === "member"}
-                <Member HandleLogout={HandleLogout} {path_api} />
+                <Member {path_api} />
             {:else if activePage === "admin"}
-                <Admin HandleLogout={HandleLogout} {path_api} />
+                <Admin {path_api} />
             {:else}
                 <div class="bg-background rounded-xl border p-6">
                     <p class="text-muted-foreground text-sm">Halaman <strong>{activeLabel}</strong> belum tersedia.</p>

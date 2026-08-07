@@ -84,6 +84,32 @@ dalam satu DB transaction:
 | POST | `/api/transaksi` | Riwayat transaksi, paginated (`username` kosong = semua member) |
 | POST | `/api/transaksi/deposit` | Deposit saldo member (CREDIT/DEPOSIT) |
 | POST | `/api/transaksi/withdraw` | Withdraw saldo member (DEBIT/WITHDRAW) |
+| POST | `/api/dashboard` | Ringkasan dashboard admin: total deposit/withdraw/debit hari ini + total member & transaksi + chart debit/credit per bulan (12 bulan terakhir) |
+
+**Response `/api/dashboard`** — selain 5 kartu statistik (deposit/withdraw/debit hari ini,
+member, transaksi), `record` ikut bawa `chart` (array 12 entri, urut dari bulan 11 bulan lalu
+sampai bulan berjalan, format `YYYY-MM`). Bulan tanpa transaksi tetap diisi `"0.00"` supaya
+sumbu chart selalu penuh 12 bulan:
+```json
+{
+  "status": 200,
+  "message": "success",
+  "record": {
+    "total_deposit_today": "5000000.00",
+    "total_withdraw_today": "1000000.00",
+    "total_debit_today": "2500000.00",
+    "total_member": 120,
+    "total_transaksi": 4800,
+    "chart": [
+      { "bulan": "2025-09", "debit": "0.00", "credit": "0.00" },
+      { "bulan": "2026-08", "debit": "3200000.00", "credit": "6800000.00" }
+    ]
+  }
+}
+```
+`chart[].debit` = total `tipe = 'DEBIT'` (semua source) bulan itu, `chart[].credit` = total
+`tipe = 'CREDIT'` (semua source). Endpoint di-cache Redis **TTL 1 jam**
+(`RedisDashboardTTL` di `internal/service/dashboard.go`).
 
 **Paging `/api/transaksi`** — body `{ username?, tipe?, limit?, offset? }`. `limit` default &
 maksimal **500** (dipaksa ke 500 kalau kosong/negatif/lebih dari 500 — lihat `trxPageSize` di
@@ -259,18 +285,27 @@ Lihat [`.env.example`](.env.example). Tambahan buat fitur ini:
 | `DB_REDIS_NAME` | Index Redis DB (project ini pakai **DB 2**, bukan default 0) |
 | `PUBLIC_API_KEY` | Secret yang harus dikirim website game lewat header `X-API-KEY` ke `/api/public/*` |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Notifikasi Telegram kalau ada server error (500) — lihat §3.3 |
+| `RATE_LIMIT_MAX` | Maks request per window (default `300`) — rate limit global `/api` per IP, lihat §2 |
+| `RATE_LIMIT_EXP` | Panjang window rate limit dalam menit (default `1`) |
 
 ## 5. Frontend (`web2026/`, Svelte 5 + Vite + Tailwind)
 
 | Halaman | File | Fungsi |
 |---|---|---|
 | Login | `src/Login.svelte` | Login admin (username + password) |
+| Dashboard | `src/dashboard/` | Kartu statistik: total deposit/withdraw/debit hari ini, total member, total transaksi + bar chart debit vs credit per bulan (12 bulan terakhir, pakai komponen Chart shadcn-svelte / LayerChart v2) |
 | Admin | `src/admin/` | List + create/edit akun admin |
 | Member | `src/member/` | List + create/edit akun member (saldo, status, lihat token) |
 | Transaksi | `src/transaksi/` | Deposit/withdraw + riwayat transaksi semua member |
 
 Setiap fitur punya 2 file: `<Fitur>.svelte` (ambil data lewat hook `src/lib/use<Fitur>.ts`,
 cek token) dan `Home.svelte` (tampilan tabel + modal form, submit langsung ke API).
+
+Semua request authenticated lewat satu wrapper `src/lib/api.ts` (`apiFetch`) — otomatis
+nyetel header `Authorization: Bearer <token>`, dan **kalau backend balas 401 (token
+invalid/expired) langsung auto-logout**: token dihapus (`setToken(null)`), `Root.svelte`
+langsung render halaman Login. Jadi user yang token-nya expire tidak bisa tetap diam di
+halaman admin.
 
 **Komponen bersama:** `src/components/DepositWithdrawModal.svelte` — modal deposit/withdraw
 yang dipakai di 2 tempat:
@@ -443,3 +478,62 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
 - **Bug fix — `Log.Fatal` tersisa di `GetRedis`/`DeleteRedis`**: (`internal/connection/redis.go`)
   masih ada 2 titik yang bisa bikin app crash total (`os.Exit`) kalau Redis error sesaat —
   sisa dari fix serupa yang udah dibenerin di `SetRedis` sebelumnya. Diganti ke `Log.Error`.
+- **Fitur baru — Total Debit hari ini di halaman Dashboard**: kartu statistik "Total Debit Hari
+  Ini" ditambahkan di `src/dashboard/Dashboard.svelte` (grid diubah ke `xl:grid-cols-5`).
+  Datanya ambil dari `tbl_trx_transaksi` dengan `tipe = 'DEBIT'` dan `source = 'BET'` di
+  rentang hari ini (Jam Jakarta) — beda sama "Total Withdraw" yang juga DEBIT tapi source
+  `WITHDRAW`. Backend: query `Summary` di `internal/repository/wallet_transaction.go`
+  ditambah kolom `DebitBetToday`, terus di-propagation ke `domain.TrxSummary`,
+  `dto.DashboardData.TotalDebitToday` (`json: "total_debit_today"`),
+  `internal/service/dashboard.go`, dan `web2026/src/lib/useDashboard.ts`. Cache Redis dashboard
+  (TTL 1 jam, lihat `RedisDashboardTTL`) tetap dipakai seperti field lain.
+- **Fitur baru — chart transaksi per bulan (1 tahun) di halaman Dashboard**: ditambahkan section
+  "Transaksi Per Bulan" di `src/dashboard/Dashboard.svelte` — bar chart 12 bulan terakhir dengan
+  2 bar per bulan: **Debit** (rose, total `tipe = 'DEBIT'` semua source) dan **Credit** (emerald,
+  total `tipe = 'CREDIT'` semua source).
+  Backend: repository `MonthlySummary` (`internal/repository/wallet_transaction.go`, GROUP BY
+  `to_char(create_at, 'YYYY-MM')`, di-scope `create_at >= monthStart && < monthEnd`), hasil
+  `[]domain.TrxMonthly`, dimapping jadi `dto.DashboardData.Chart` (`dto/dashboard_data.go`,
+  field `json: "chart"`). Service `Summary` isi otomatis 12 bulan penuh — bulan tanpa transaksi
+  diisi `"0.00"` biar sumbu chart selalu konsisten (lihat §3.1). Frontend: `useDashboard.ts`
+  nambah tipe `DashboardMonthly` + `chart`.
+- **Perubahan — chart pindah ke komponen Chart shadcn-svelte (LayerChart v2 BarChart)**:
+  bar chart yang tadinya CSS/Tailwind manual diganti pakai komponen Chart bawaan shadcn-svelte
+  (`npx shadcn-svelte add chart` → `src/lib/components/ui/chart/`), yang dibangun di atas
+  **LayerChart v2** (`npm i -D layerchart@next`, dependency `layerchart` ditambahkan ke
+  `package.json`). Di `src/dashboard/Dashboard.svelte`: `Chart.Container` + `BarChart`
+  (`seriesLayout="group"`, `bandPadding`, `legend`, xAxis format `YYYY-MM` → nama bulan, tooltip
+  `Chart.Tooltip`). Warna Debit/Credit didefinisikan langsung di `chartConfig` (`#f43f5e` /
+  `#10b981`), bukan lewat CSS variable `--chart-*`. Data di-convert string → number dulu
+  (`chartData`) karena LayerChart butuh numerik.
+- **Perubahan — TTL cache dashboard diturunkan dari 24 jam ke 1 jam**: `RedisDashboardTTL` di
+  `internal/service/dashboard.go` diubah dari `24 * time.Hour` ke `time.Hour` — biar kartu
+  statistik dan chart per bulan gak ketinggalan data terlalu lama.
+- **Perubahan — cache key dashboard di-versioning (`wallet:dashboard` → `wallet:dashboard:v2`)**:
+  pas fitur chart ditambah, entry cache lama yang masih kepake (isi JSON tanpa field `chart`,
+  TTL lama 24 jam) bikin `chart` kebaca `null` walau backend sudah pakai kode baru. Karena
+  bentuk payload cache berubah, key-nya dinaikin versi (`RedisDashboardKey`) — entry cache
+  versi lama otomatis diabaikan, jadi gak perlu flush Redis manual. Kalau suatu saat payload
+  cache dashboard berubah bentuk lagi, naikin lagi versi key-nya.
+- **Perubahan — cache chart dipisah ke key sendiri `wallet:dashboard:chart`**:
+  cache kartu statistik (`wallet:dashboard:v2`) dan chart per bulan (`wallet:dashboard:chart`)
+  sekarang terpisah (DB Redis 3, TTL 1 jam dua-duanya). Di `internal/service/dashboard.go`,
+  `Summary` baca tiap bagian dari cache sendiri-sendiri — kalau salah satu kena cache dan yang
+  lain miss, cuma bagian yang miss yang di-query ulang ke DB, lalu dua-duanya di-write ulang
+  (lewat goroutine `SetRedis`). Pas pakai `redis-cli` buat bersihin cache dashboard, hapus
+  dua-dua key-nya: `DEL wallet:dashboard:v2 wallet:dashboard:chart` (di DB 3).
+- **Fitur keamanan — auto-logout kalau token expire (frontend)**: semua request
+  authenticated sekarang lewat `src/lib/api.ts` (`apiFetch`), dipakai di semua hook
+  (`useAdmin/useMember/useTransaksi/useDashboard`), save admin/member, dan
+  `DepositWithdrawModal`. Kalau backend balas `401` (token invalid/expired, dicek JWT
+  middleware di `main.go`), `apiFetch` langsung `setToken(null)` → `Root.svelte` render
+  halaman Login. `$effect` logout yang tadinya duplikat di tiap halaman (`Admin/Member/
+  Transaksi/Dashboard.svelte`) dan prop `HandleLogout` di 4 halaman itu dihapus (tombol
+  Logout di sidebar tetap jalan). Signature hook diubah terima `token: string | null`.
+- **Fitur keamanan — rate limiter global `/api` (Redis-backed)**: middleware Fiber `limiter`
+  dipasang di `main.go` via `app.Use("/api", ...)` — per IP, counter disimpan di Redis
+  (DB `DB_REDIS_NAME`) lewat `gofiber/storage/redis/v3`, jadi konsisten antar restart /
+  multi instance. Default `300` request/menit, bisa diatur lewat `RATE_LIMIT_MAX` /
+  `RATE_LIMIT_EXP` (lihat §4). Limit dicapai → `429 too many requests`. `/api/auth` tetap
+  punya limiter lebih ketat (`20`/menit per IP, `internal/api/auth.go`). Dependency baru:
+  `github.com/gofiber/storage/redis/v3`.

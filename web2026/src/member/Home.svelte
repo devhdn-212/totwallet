@@ -1,6 +1,7 @@
 <script lang="ts">
     import { getStatusLabel } from '../lib/status'
     import { getInputValue, sanitizeidlower,sanitizestringnormal, decimal } from "../lib/helpers";
+    import { apiFetch } from "../lib/api";
     import * as z from "zod";
     import { toast } from "svelte-sonner"
     import { Toaster } from "$lib/components/ui/sonner"
@@ -135,16 +136,12 @@
         }
         loadingSave = true
         try{
-            const res = await fetch(path_api+"api/member/save", {
+            const res = await apiFetch(path_api+"api/member/save", token, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: "Bearer " + token,
-                },
                 body: JSON.stringify({
                     type: form.sData,
                     username: form.field_id,
-                    nama: form.field_name,
+                    name: form.field_name,
                     password: form.field_password,
                     status: form.field_status,
                 }),
