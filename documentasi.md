@@ -563,3 +563,9 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   → `fiber.Ctx`. Rate limiter tidak lagi pakai package storage gofiber: `limiter_storage.go`
   (package main) mengadaptasi `*redis.Client` (go-redis v9 / `connection.RDB`) langsung ke
   interface `fiber.Storage`. `go build ./...` & `go vet ./...` bersih.
+- **Bug fix — form Member gagal save, error "validation failed"**: `member/Home.svelte`
+  fungsi `HandleSave` ngirim field `name` di body `POST /api/member/save`, padahal
+  `dto.MemberSaveRequest` di backend nunggu **`nama`** (`validate:"required"`) — jadi field
+  `Nama` selalu kebaca kosong di server dan gagal validasi, walau form-nya udah diisi lengkap
+  di sisi user. Diganti ke `nama: form.field_name`. (`admin/Home.svelte` aman, `dto.AdminSave`
+  emang expect `name`, beda kontrak sama member.)
