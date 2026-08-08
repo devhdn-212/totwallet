@@ -141,7 +141,7 @@
                 body: JSON.stringify({
                     type: form.sData,
                     username: form.field_id,
-                    name: form.field_name,
+                    nama: form.field_name,
                     password: form.field_password,
                     status: form.field_status,
                 }),
