@@ -138,9 +138,9 @@ Key cache utama:
 - `master:jwt:blacklist:<jti>` — token logout (TTL = sisa umur token)
 - Rate limit disimpan fiber limiter di DB yang sama (prefix `lr:`)
 
-Koneksi Redis yang sama juga dipakai sebagai storage rate limiter via adapter `redisStorage`
-di `main.go` (mengimplementasikan `fiber.Storage` dengan go-redis langsung — **tidak pakai**
-package storage dari gofiber).
+Koneksi Redis yang sama juga dipakai sebagai storage rate limiter via adapter `FiberRedisStorage`
+di `internal/connection/fiber_storage.go` (mengimplementasikan `fiber.Storage` dengan go-redis
+langsung — **tidak pakai** package storage dari gofiber).
 
 ---
 
@@ -335,11 +335,11 @@ docker run -p 6167:6167 --env-file .env wallet-api
 
 | Area | File |
 |---|---|
-| Bootstrap | `main.go` (Fiber v3, middleware, route, JWT, limiter + `redisStorage`) |
+| Bootstrap | `main.go` (Fiber v3, middleware, route, JWT, limiter) |
 | Handler | `internal/api/admin.go`, `auth.go`, `dashboard.go`, `wallet.go`, `wallet_transaction.go`, `wallet_public.go`, `middleware.go` |
 | Business logic | `internal/service/admin.go`, `auth.go`, `dashboard.go`, `wallet.go`, `wallet_transaction.go` |
 | Query | `internal/repository/*.go` |
-| Koneksi | `internal/connection/database.go`, `redis.go`, `telegram.go` |
+| Koneksi | `internal/connection/database.go`, `redis.go`, `telegram.go`, `fiber_storage.go` |
 | Config | `internal/config/` |
 | Kontrak | `domain/`, `dto/` |
 | Frontend | `web2026/src/` (`lib/api.ts`, `lib/use*.ts`, `Login.svelte`, `dashboard/`, `admin/`, `member/`, `transaksi/`, `components/DepositWithdrawModal.svelte`) |

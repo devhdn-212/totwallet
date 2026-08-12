@@ -22,7 +22,6 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -96,7 +95,7 @@ func main() {
 			return c.Status(fiber.StatusTooManyRequests).
 				JSON(dto.CreateResponseError(fiber.StatusTooManyRequests, "too many requests"))
 		},
-		Storage: NewRedisStorage(connection.RDB),
+		Storage: connection.NewFiberRedisStorage(connection.RDB),
 	}))
 
 	// Serve static frontend build (Svelte). Di Fiber v3 app.Static dipindah jadi middleware static.
@@ -257,66 +256,3 @@ func NewGCPLogger() *zap.Logger {
 	return zap.New(core, zap.AddCaller())
 }
 
-// redisStorage mengadaptasi *redis.Client (github.com/redis/go-redis/v9) yang sudah
-// dipakai app lewat connection.RDB ke interface fiber.Storage milik middleware limiter.
-// Dipakai supaya rate limit & cache berbagi koneksi Redis yang sama, tanpa harus
-// tergantung package storage dari gofiber.
-type redisStorage struct {
-	client *redis.Client
-}
-
-// NewRedisStorage membungkus client redis milik app sebagai fiber.Storage.
-// Client TIDAK akan ditutup oleh storage ini — umurnya dikelola connection.RDB.
-func NewRedisStorage(client *redis.Client) *redisStorage {
-	return &redisStorage{client: client}
-}
-
-func (s *redisStorage) Get(key string) ([]byte, error) {
-	return s.GetWithContext(context.Background(), key)
-}
-
-func (s *redisStorage) GetWithContext(ctx context.Context, key string) ([]byte, error) {
-	if len(key) == 0 {
-		return nil, nil
-	}
-	val, err := s.client.Get(ctx, key).Bytes()
-	if err == redis.Nil {
-		return nil, nil
-	}
-	return val, err
-}
-
-func (s *redisStorage) Set(key string, val []byte, exp time.Duration) error {
-	return s.SetWithContext(context.Background(), key, val, exp)
-}
-
-func (s *redisStorage) SetWithContext(ctx context.Context, key string, val []byte, exp time.Duration) error {
-	if len(key) == 0 || len(val) == 0 {
-		return nil
-	}
-	return s.client.Set(ctx, key, val, exp).Err()
-}
-
-func (s *redisStorage) Delete(key string) error {
-	return s.DeleteWithContext(context.Background(), key)
-}
-
-func (s *redisStorage) DeleteWithContext(ctx context.Context, key string) error {
-	if len(key) == 0 {
-		return nil
-	}
-	return s.client.Del(ctx, key).Err()
-}
-
-func (s *redisStorage) Reset() error {
-	return s.ResetWithContext(context.Background())
-}
-
-func (s *redisStorage) ResetWithContext(ctx context.Context) error {
-	return s.client.FlushDB(ctx).Err()
-}
-
-// Close no-op: client global (connection.RDB) dikelola di tempat lain, jangan ditutup di sini.
-func (s *redisStorage) Close() error {
-	return nil
-}
