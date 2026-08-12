@@ -25,8 +25,8 @@ const (
 	// transaksi baru (key-nya kombinasi username+tipe+limit+offset, kebanyakan variasi kalau
 	// mesti dihapus satu-satu). Paling lambat data ketinggalan segini lama sebelum refresh.
 	trxCacheTTL = 1 * time.Minute
-	// nama baris counter di tbl_counter untuk generate notrx, lihat sql/schema.sql
-	NoTrxCounterName = "NOTRX_TRANSAKSI"
+	// nama sequence Postgres untuk generate notrx, lihat sql/schema.sql
+	NoTrxSequenceName = "seq_notrx_transaksi"
 )
 
 type walletTransactionService struct {
@@ -125,7 +125,7 @@ func (s walletTransactionService) process(ctx context.Context, username, tipe, s
 		return dto.TrxData{}, err
 	}
 
-	counter, err := util.GetNextCounterManualTx(ctx, tx, NoTrxCounterName)
+	counter, err := util.NextSequenceValue(ctx, tx, NoTrxSequenceName)
 	if err != nil {
 		return dto.TrxData{}, err
 	}

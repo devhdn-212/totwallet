@@ -56,8 +56,11 @@ CREATE INDEX idx_trx_username ON tbl_trx_transaksi (username);
 CREATE INDEX idx_trx_create_at ON tbl_trx_transaksi (create_at);
 CREATE INDEX idx_trx_tipe_source ON tbl_trx_transaksi (tipe, "source");
 
--- counter untuk nomor transaksi
-INSERT INTO tbl_counter (nmcounter, counter) VALUES ('NOTRX_TRANSAKSI', 0);
+-- Generate notrx pakai sequence Postgres (nextval, atomic non-blocking) â€” BUKAN lagi
+-- tbl_counter + "SELECT ... FOR UPDATE", soalnya row lock manual itu serialize SEMUA
+-- transaksi wallet (deposit/withdraw/win/bet, semua user) lewat satu baris, jadi
+-- bottleneck pas ada burst transaksi konkuren (timeout "error select counter").
+CREATE SEQUENCE IF NOT EXISTS seq_notrx_transaksi;
 
 -- =====================================================
 -- CONTOH TRANSAKSI (jalankan dalam 1 database transaction)

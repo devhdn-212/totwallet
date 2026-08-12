@@ -86,7 +86,10 @@ dalam satu DB transaction:
    ulang oleh website game karena retry), hasil transaksi lama langsung dikembalikan **tanpa**
    mutasi saldo lagi — mencegah double credit/debit.
 3. Hitung `saldo_after`, tolak kalau DEBIT bikin saldo minus.
-4. Generate `notrx` dari `tbl_counter` (lihat `util.GetNextCounterManualTx`).
+4. Generate `notrx` dari sequence Postgres `seq_notrx_transaksi` (lihat `util.NextSequenceValue`) —
+   pakai `nextval()` yang atomic & non-blocking, bukan lagi row lock manual di `tbl_counter`
+   (row lock lama serialize SEMUA transaksi wallet lewat satu baris, jadi bottleneck pas ada
+   burst transaksi konkuren dan bisa timeout, lihat riwayat error "error select counter").
 5. Insert baris `tbl_trx_transaksi`, commit.
 
 ## 3. Endpoint API
