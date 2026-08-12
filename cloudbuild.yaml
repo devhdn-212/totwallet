@@ -15,7 +15,7 @@ steps:
       - 'deploy'
       - 'totwallet'  # <-- Ubah jadi nama service Cloud Run kamu!
       - '--image=gcr.io/winsoft-isd-cm/totwallet:latest'
-      - '--region=europe-west1'     # <-- Ubah ke region kamu (misal: asia-southeast1 / us-central1)
+      - '--region=asia-southeast2'  # satu region sama VM database (instance-bukumimpi2) biar latensi rendah
       - '--port=6167'
 
 options:
