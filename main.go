@@ -151,12 +151,14 @@ func main() {
 	adminRepository := repository.NewAdminRepository(pgxExec)
 	walletRepository := repository.NewWalletRepository(pgxExec)
 	walletTrxRepository := repository.NewWalletTransactionRepository(pgxExec)
+	slowQueryRepository := repository.NewSlowQueryRepository(pgxExec)
 
 	adminService := service.NewAdminService(dbPool, adminRepository)
 	authService := service.NewAuth(dbPool, cnf, adminRepository)
 	walletService := service.NewWalletService(dbPool, walletRepository)
 	walletTrxService := service.NewWalletTransactionService(dbPool, walletTrxRepository)
 	dashboardService := service.NewDashboardService(walletRepository, walletTrxRepository)
+	slowQueryService := service.NewSlowQueryService(slowQueryRepository)
 
 	api.NewAdminApi(app, adminService, jwtMidd)
 	api.NewAuth(app, authService, jwtMidd)
@@ -164,6 +166,7 @@ func main() {
 	api.NewWalletTransactionApi(app, walletTrxService, jwtMidd)
 	api.NewWalletPublicApi(app, walletService, walletTrxService, cnf.Public.ApiKey)
 	api.NewDashboardApi(app, dashboardService, jwtMidd)
+	api.NewSlowQueryApi(app, slowQueryService, jwtMidd)
 
 	go func() {
 		appsPort := cnf.Server.Port

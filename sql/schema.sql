@@ -110,3 +110,18 @@ CREATE TABLE public.tbl_counter (
 	counter int8 NOT NULL,
 	CONSTRAINT tbl_counter_pk PRIMARY KEY (idcounter)
 );
+
+-- ================= TBL_SLOW_QUERY =================
+-- Query database yang lebih lambat dari threshold (lihat internal/connection/tracer.go)
+-- otomatis kecatat di sini oleh pgx query tracer, ditampilin di halaman "Slow Query"
+-- dashboard admin. Cuma nyimpen teks query (placeholder $1/$2/dst, BUKAN nilai asli
+-- argumennya) supaya gak ada data sensitif (password/token) yang ke-log.
+CREATE TABLE tbl_slow_query (
+	id bigserial NOT NULL,
+	query text NOT NULL,
+	duration_ms int8 NOT NULL,
+	create_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	CONSTRAINT tbl_slow_query_pk PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_slow_query_create_at ON tbl_slow_query (create_at DESC);

@@ -3,13 +3,14 @@
   import { Separator } from "$lib/components/ui/separator"
   import {
     LayoutDashboard, Users, ShoppingCart,
-    Menu, ShieldCheck, LogOut
+    Menu, ShieldCheck, LogOut, Gauge
   } from "lucide-svelte"
 
   import Dashboard from "../dashboard/Dashboard.svelte"
   import Admin from "../admin/Admin.svelte"
   import Member from "../member/Member.svelte"
   import Transaksi from "../transaksi/Transaksi.svelte"
+  import SlowQuery from "../slowquery/SlowQuery.svelte"
 
   let { HandleLogout, path_api } = $props()
 
@@ -27,6 +28,7 @@
     { key: "transaksi", label: "Transaksi", icon: ShoppingCart },
     { key: "member", label: "Member", icon: Users },
     { key: "admin", label: "Admin", icon: ShieldCheck },
+    { key: "slowquery", label: "Slow Query", icon: Gauge },
   ]
 </script>
 
@@ -93,6 +95,8 @@
                 <Member {path_api} />
             {:else if activePage === "admin"}
                 <Admin {path_api} />
+            {:else if activePage === "slowquery"}
+                <SlowQuery {path_api} />
             {:else}
                 <div class="bg-background rounded-xl border p-6">
                     <p class="text-muted-foreground text-sm">Halaman <strong>{activeLabel}</strong> belum tersedia.</p>

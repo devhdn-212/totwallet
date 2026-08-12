@@ -39,11 +39,17 @@ func GetDatabase(conf config.Database) *pgxpool.Pool {
 	configPool.MaxConnIdleTime = 5 * time.Minute
 	configPool.MaxConnLifetime = 60 * time.Minute
 
+	// Tracer harus nempel SEBELUM pool kebentuk. Pool-nya sendiri baru di-attach ke tracer
+	// (SetPool) SETELAH dbPool jadi di bawah — lihat SlowQueryTracer di tracer.go.
+	tracer := NewSlowQueryTracer()
+	configPool.ConnConfig.Tracer = tracer
+
 	// 4. Membuat koneksi pool
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), configPool)
 	if err != nil {
 		Log.Fatal("Gagal membuat pool database", zap.Error(err))
 	}
+	tracer.SetPool(dbPool)
 
 	// 5. Verifikasi koneksi dengan Ping
 	err = dbPool.Ping(context.Background())

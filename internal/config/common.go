@@ -4,6 +4,7 @@ const (
 	DB_tbl_admin         string = "tbl_admin"
 	DB_tbl_user          string = "tbl_user"
 	DB_tbl_trx_transaksi string = "tbl_trx_transaksi"
+	DB_tbl_slow_query    string = "tbl_slow_query"
 )
 const Sourcechar string = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{};:,.<>?/`
 
