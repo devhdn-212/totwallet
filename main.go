@@ -165,6 +165,7 @@ func main() {
 	api.NewWalletTransactionApi(app, walletTrxService, jwtMidd)
 	api.NewWalletPublicApi(app, walletService, walletTrxService, cnf.Public.ApiKey)
 	api.NewDashboardApi(app, dashboardService, jwtMidd)
+	api.NewHealthCheckApi(app)
 	api.NewSlowQueryApi(app, slowQueryService, jwtMidd)
 
 	go func() {

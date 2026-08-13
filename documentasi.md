@@ -94,11 +94,34 @@ dalam satu DB transaction:
 
 ## 3. Endpoint API
 
+### 3.0 Health check (publik, tanpa JWT)
+
+**GET `/api/health`** — balikin IP asli pengguna, dipanggil frontend saat pertama kali load
+(halaman Login) **sebelum** login. IP hasil endpoint ini ikut dikirim di body `/api/auth`
+(field `ipaddress`) dan disimpan ke `tbl_admin.ipaddress`.
+
+```json
+{
+  "status": 200,
+  "message": "success",
+  "record": {
+    "real_ip": "103.24.56.78",
+    "container_ip": "10.0.0.5",
+    "ip_list": ["103.24.56.78"]
+  }
+}
+```
+
+`real_ip` = IP asli client. Di belakang proxy / Cloud Run, `c.IP()` bisa berubah jadi IP
+internal proxy — makanya dicek dulu dari `c.IPs()` (header `X-Forwarded-For`), baru fallback
+ke `c.IP()`. Response dikasih header anti-cache (`no-store`) biar IP yang didapat selalu fresh.
+Implementasi: `internal/api/health.go`.
+
 ### 3.1 Admin panel (JWT, header `Authorization: Bearer <token>`)
 
 | Method | Path | Fungsi |
 |---|---|---|
-| POST | `/api/auth` | Login admin → `{token}` |
+| POST | `/api/auth` | Login admin → `{token}` — body wajib isi `ipaddress` (real IP dari `/api/health`, dilihat §3.0), disimpan ke `tbl_admin.ipaddress` |
 | POST | `/api/auth/page` | Cek halaman (saat ini selalu sukses — lihat catatan di bawah) |
 | POST | `/api/auth/logout` | Logout, blacklist token |
 | POST | `/api/admin` | List admin |
@@ -316,7 +339,7 @@ Lihat [`.env.example`](.env.example). Tambahan buat fitur ini:
 
 | Halaman | File | Fungsi |
 |---|---|---|
-| Login | `src/Login.svelte` | Login admin (username + password) |
+| Login | `src/Login.svelte` | Login admin (username + password) — saat load, panggil `/api/health` (lihat §3.0) buat nangkep real IP, dikirim sebagai `ipaddress` di body `/api/auth` |
 | Dashboard | `src/dashboard/` | Kartu statistik: total deposit/withdraw/debit hari ini, total member, total transaksi + bar chart debit vs credit per bulan (12 bulan terakhir, pakai komponen Chart shadcn-svelte / LayerChart v2) |
 | Admin | `src/admin/` | List + create/edit akun admin |
 | Member | `src/member/` | List + create/edit akun member (saldo, status, lihat token) |
@@ -566,6 +589,14 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   → `fiber.Ctx`. Rate limiter tidak lagi pakai package storage gofiber: `limiter_storage.go`
   (package main) mengadaptasi `*redis.Client` (go-redis v9 / `connection.RDB`) langsung ke
   interface `fiber.Storage`. `go build ./...` & `go vet ./...` bersih.
+- **Fitur — capture IP address saat admin login**: endpoint publik baru **`GET /api/health`**
+  (`internal/api/health.go`) yang balikin real IP client (`real_ip`). Frontend (`Login.svelte`)
+  memanggilnya pas pertama load halaman login, IP-nya disimpan dan dikirim sebagai field
+  `ipaddress` di body `POST /api/auth` (backend sudah simpan ke `tbl_admin.ipaddress` via
+  `UpdateLogin`). Real IP dicek dari `c.IPs()` (X-Forwarded-For, biar benar di belakang
+  proxy/Cloud Run) lalu fallback `c.IP()`, response diberi header anti-cache. Kolom
+  `tbl_admin.ipaddress` di `sql/schema.sql` diperbesar dari `varchar(20)` → **`varchar(70)`**
+  (lihat §3.0 & §3.1).
 - **Bug fix — form Member gagal save, error "validation failed"**: `member/Home.svelte`
   fungsi `HandleSave` ngirim field `name` di body `POST /api/member/save`, padahal
   `dto.MemberSaveRequest` di backend nunggu **`nama`** (`validate:"required"`) — jadi field

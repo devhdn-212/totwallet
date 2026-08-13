@@ -1,5 +1,6 @@
 <script lang="ts">
     import * as z from "zod";
+    import { onMount } from "svelte";
     import { replace } from "@mateothegreat/svelte5-router";
     import { getInputValue, sanitizeUsername } from "./lib/helpers";
     import { setToken } from "./lib/auth.svelte";
@@ -20,6 +21,22 @@
         ipaddress: "0.0.0.0",
         timezone: "Asia/Jakarta"
     })
+
+    // Saat halaman login pertama dibuka, minta real IP dari /api/health dulu (biar IP
+    // asli pengguna yang tersimpan di tbl_admin.ipaddress, bukan 0.0.0.0). Kalau gagal,
+    // biarkan default "0.0.0.0" (tetap lolos validasi required).
+    onMount(async () => {
+        try {
+            const res = await fetch(path_api + "api/health");
+            const json = await res.json();
+            const realIp = json?.record?.real_ip;
+            if (realIp && realIp !== "0.0.0.0") {
+                user_field.ipaddress = realIp;
+            }
+        } catch {
+            // fallback: tetap "0.0.0.0"
+        }
+    });
 
     async function handleLogin() {
          const userSchema = z.object({

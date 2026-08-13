@@ -93,7 +93,7 @@ CREATE TABLE tbl_admin (
 	statuslogin varchar(1) NULL,
 	lastlogin timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
 	joindate date DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	ipaddress varchar(20) DEFAULT ''::character varying NULL,
+	ipaddress varchar(70) DEFAULT ''::character varying NULL,
 	timezone varchar(30) DEFAULT ''::character varying NULL,
 	create_by varchar(30) NULL,
 	create_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
