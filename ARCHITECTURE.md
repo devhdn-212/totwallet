@@ -92,6 +92,13 @@ Urutan pemasangan di `main.go`:
 5. `app.Use("/", static.New("./web2026/dist"))` — serve SPA (statis; API tetap jalan karena
    static melempar ke `next()` kalau bukan file).
 6. Route groups — admin/JWT, public/X-API-KEY.
+7. `api.NewHealthCheckApi(app)` — `GET /api/health` **publik** (tanpa JWT/API key): habis
+   limiter langsung ke handler, tidak lewat middleware auth.
+
+Catatan: `/api/health` dipanggil frontend saat halaman Login pertama load buat nangkep **real IP**
+client (dicek dari `c.IPs()`/X-Forwarded-For, fallback `c.IP()`, lihat `internal/api/health.go`).
+IP itu dikirim sebagai field `ipaddress` di body `POST /api/auth` dan disimpan ke
+`tbl_admin.ipaddress` (schema `varchar(70)`).
 
 ### 2.3 Middleware autentikasi (dua jalur)
 
@@ -151,21 +158,29 @@ langsung — **tidak pakai** package storage dari gofiber).
 ```mermaid
 sequenceDiagram
     participant B as Browser (Login.svelte)
+    participant H as /api/health (GET)
     participant A as /api/auth (POST)
     participant S as authService.Login
     participant R as repo
     participant DB as PostgreSQL
     participant RD as Redis
 
-    B->>A: { username, password, ipaddress }
+    B->>H: GET /api/health (pas halaman load)
+    H-->>B: { real_ip }
+    B->>A: { username, password, ipaddress: real_ip }
     A->>S: validasi body
     S->>R: FindByUsername
     R->>DB: SELECT tbl_admin
     S->>S: bcrypt compare
-    S->>DB: update last_login (tx)
+    S->>DB: update last_login + ipaddress (tx)
     S->>RD: SET master:client:<user> (TTL 24 jam)
     S-->>B: JWT (HS256: username, clien_admin, jti, iss, aud, iat, exp)
 ```
+
+- Real IP diambil dari `/api/health` (publik, header anti-cache, lihat §2.2) — bukan dari
+  sisi server `/api/auth` karena `c.IP()` di belakang proxy/Cloud Run bisa berubah jadi IP
+  internal. `dto.AuthRequest.Ipaddress` bersifat `required`, jadi kalau `fetch` health gagal,
+  frontend tetap kirim `"0.0.0.0"`.
 
 - Rate limit `/api/auth` = **20 request/menit/IP** (anti brute force).
 - Logout (`/api/auth/logout`): ambil `jti` dari token → `SET master:jwt:blacklist:<jti>`
@@ -336,7 +351,7 @@ docker run -p 6167:6167 --env-file .env wallet-api
 | Area | File |
 |---|---|
 | Bootstrap | `main.go` (Fiber v3, middleware, route, JWT, limiter) |
-| Handler | `internal/api/admin.go`, `auth.go`, `dashboard.go`, `wallet.go`, `wallet_transaction.go`, `wallet_public.go`, `middleware.go` |
+| Handler | `internal/api/admin.go`, `auth.go`, `dashboard.go`, `wallet.go`, `wallet_transaction.go`, `wallet_public.go`, `health.go`, `middleware.go` |
 | Business logic | `internal/service/admin.go`, `auth.go`, `dashboard.go`, `wallet.go`, `wallet_transaction.go` |
 | Query | `internal/repository/*.go` |
 | Koneksi | `internal/connection/database.go`, `redis.go`, `telegram.go`, `fiber_storage.go` |

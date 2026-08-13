@@ -597,6 +597,15 @@ build frontend — jadi satu image serve API + admin panel sekaligus.
   proxy/Cloud Run) lalu fallback `c.IP()`, response diberi header anti-cache. Kolom
   `tbl_admin.ipaddress` di `sql/schema.sql` diperbesar dari `varchar(20)` → **`varchar(70)`**
   (lihat §3.0 & §3.1).
+- **Fitur — layout responsive / mobile friendly**: `home/Home.svelte` — di layar kecil
+  (`<lg`) sidebar jadi **drawer** yang tersembunyi (sliding dari kiri) + backdrop gelap,
+  dibuka lewat tombol hamburger di topbar, auto-tutup saat pilih menu; di desktop
+  (`≥lg`) tetap kolom yang bisa collapse seperti sebelumnya. Padding konten jadi
+  `p-3 sm:p-6`, area utama `min-w-0`. Header halaman (judul + tombol aksi) dan baris
+  pagination di `admin/member/transaksi/slowquery/Home.svelte` diubah jadi
+  `flex-col` di mobile (menumpuk) lalu `sm:flex-row` di layar lebih besar; tombol aksi
+  boleh wrap. `Login.svelte` dikasih padding horizontal (`px-4`). Tabel sudah punya
+  scroll horizontal (`overflow-x-auto` + `min-w-[...]`), dialog sudah `max-w-[calc(100%-2rem)]`.
 - **Bug fix — form Member gagal save, error "validation failed"**: `member/Home.svelte`
   fungsi `HandleSave` ngirim field `name` di body `POST /api/member/save`, padahal
   `dto.MemberSaveRequest` di backend nunggu **`nama`** (`validate:"required"`) — jadi field

@@ -194,14 +194,14 @@
 <div class="flex flex-col gap-4">
     <Toaster richColors position="top-right" theme="light" />
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="text-xl font-semibold">{title_page}</h1>
             <p class="text-sm text-muted-foreground">Kelola akun admin panel</p>
         </div>
 
         <!-- Buttons -->
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             <Button size="sm" class="cursor-pointer" onclick={() => NewData("New","","","","Y","","")}>
                 <Plus size={14} />
                 New

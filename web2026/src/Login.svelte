@@ -86,7 +86,7 @@
     }
 </script>
 
-<main class="min-h-screen flex items-center justify-center bg-muted/40">
+<main class="min-h-screen flex items-center justify-center bg-muted/40 px-4">
     <Toaster richColors position="top-right" theme="light" />
     <Card.Root class="w-full max-w-sm">
         <Card.Header>

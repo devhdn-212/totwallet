@@ -36,13 +36,13 @@
 <div class="flex flex-col gap-4">
     <Toaster richColors position="top-right" theme="light" />
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="text-xl font-semibold">{title_page}</h1>
             <p class="text-sm text-muted-foreground">Deposit / withdraw saldo member & riwayat transaksi</p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             <Button size="sm" class="cursor-pointer bg-blue-600 hover:bg-blue-700" onclick={() => openModal('deposit')}>
                 <ArrowDownCircle size={14} />
                 Deposit
@@ -116,7 +116,7 @@
     </div>
 
     <!-- Paging -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-xs text-muted-foreground">
             Menampilkan {rangeStart}-{rangeEnd} dari {total} transaksi
         </p>

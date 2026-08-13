@@ -27,13 +27,13 @@
 
 <div class="flex flex-col gap-4">
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="text-xl font-semibold">{title_page}</h1>
             <p class="text-sm text-muted-foreground">Query database yang lebih lambat dari 500ms, kecatat otomatis</p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" class="cursor-pointer" onclick={RefreshPage} disabled={isLoading}>
                 <RefreshCw size={14} class={isLoading ? "animate-spin" : ""} />
                 Refresh
@@ -89,7 +89,7 @@
     </div>
 
     <!-- Paging -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-xs text-muted-foreground">
             Menampilkan {rangeStart}-{rangeEnd} dari {total} query lambat
         </p>
