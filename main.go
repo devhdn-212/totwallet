@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,7 +48,23 @@ func main() {
 		logger.Fatal("Redis is not healthy")
 	}
 
-	app := fiber.New()
+	// TrustProxy: Cloud Run menaruh app di belakang Google Front End — koneksi TCP yang
+	// sampai ke container adalah dari proxy internal Google (IP privat/link-local), BUKAN
+	// IP browser user. Tanpa ini, c.IP() selalu balikin IP proxy yang sama untuk SEMUA user,
+	// bikin rate limiter (di bawah & internal/api/auth.go) berbagi satu counter buat seluruh
+	// traffic alih-alih per-user — efeknya semua orang kena 429 bareng-bareng.
+	// Cakupan trust dibatasi ke rentang privat/loopback/link-local (hop Cloud Run), TIDAK
+	// trust semua asal supaya X-Forwarded-For gak bisa dispoof bebas buat bypass limiter.
+	app := fiber.New(fiber.Config{
+		TrustProxy: true,
+		TrustProxyConfig: fiber.TrustProxyConfig{
+			Private:   true,
+			Loopback:  true,
+			LinkLocal: true,
+		},
+		ProxyHeader:        fiber.HeaderXForwardedFor,
+		EnableIPValidation: true,
+	})
 	app.Use(requestid.New())
 	app.Use(etag.New())
 	app.Use(func(c fiber.Ctx) error {
@@ -85,7 +102,16 @@ func main() {
 	// cache) supaya limit konsisten antar restart/multi instance. `/api/auth` punya limiter
 	// sendiri yang lebih ketat (lihat internal/api/auth.go). Storage pakai koneksi Redis
 	// yang sama dengan cache (connection.RDB) via adapter go-redis, bukan storage gofiber.
+	// `/api/public` (dipanggil server-to-server oleh 1 partner game via X-API-KEY, lihat
+	// internal/api/wallet_public.go) DIKECUALIKAN: itu jalur debit/credit saldo real-time
+	// buat semua grup yang lewat partner itu, throughput-nya bisa jauh di atas limit anti-abuse
+	// IP publik ini, dan udah diamankan sendiri lewat API key + idempotency by playerinvoice.
+	// Kalau ke-limit di sini, taruhan/kemenangan bisa gagal ke-debit/ke-credit tanpa sempat
+	// diproses sama sekali.
 	app.Use("/api", limiter.New(limiter.Config{
+		Next: func(c fiber.Ctx) bool {
+			return strings.HasPrefix(c.Path(), "/api/public")
+		},
 		Max:        cnf.Limiter.Max,
 		Expiration: time.Duration(cnf.Limiter.Exp) * time.Minute,
 		KeyGenerator: func(c fiber.Ctx) string {
